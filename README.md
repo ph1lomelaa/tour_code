@@ -1,51 +1,61 @@
-# 🕌 Hickmet Premium - Система управления тур-кодами
+# Hickmet Premium - Система управления тур-кодами
 
 Веб-приложение для управления паломническими турами (Umrah/Hajj).
 
-## 📁 Структура проекта
+## Структура проекта
 
 ```
 Tour_code/
-├── frontend/              # React + Vite приложение
-│   ├── app/              # Компоненты и страницы
-│   ├── styles/           # CSS стили
-│   ├── package.json
-│   └── vite.config.ts
+├── backend/                   # Серверная часть (FastAPI + Python)
+│   ├── app/                   # Основной код приложения
+│   │   ├── api/v1/            # API эндпоинты (tours, manifest)
+│   │   ├── core/              # Конфигурация и подключение к БД
+│   │   ├── services/          # Бизнес-логика (Google Sheets, парсеры)
+│   │   ├── models/            # Модели данных (SQLAlchemy)
+│   │   ├── schemas/           # Pydantic-схемы валидации
+│   │   ├── crud/              # CRUD-операции с БД
+│   │   └── workers/           # Фоновые задачи
+│   ├── credentials/           # Google API ключи (не в git)
+│   ├── database/migrations/   # Миграции БД
+│   ├── tests/                 # Тесты
+│   ├── uploads/               # Загруженные манифесты
+│   └── requirements.txt
 │
-├── backend/              # FastAPI приложение
-│   ├── app/             # Python код
-│   ├── database/        # SQL схема и миграции
-│   ├── requirements.txt
-│   └── README.md
+├── frontend/                  # Клиентская часть (React + Vite + TS)
+│   ├── app/
+│   │   ├── pages/             # Страницы (CreateTourCode и др.)
+│   │   └── components/
+│   │       ├── ui/            # UI-компоненты (Button, Input, Table)
+│   │       └── figma/         # Компоненты из Figma-дизайна
+│   ├── src/lib/api/           # API-клиент (запросы к бэкенду)
+│   ├── styles/                # CSS-стили
+│   └── package.json
 │
-├── docker-compose.dev.yml    # Docker для разработки
-├── ARCHITECTURE_DIAGRAMS.md  # Детальная архитектура
-└── QUICKSTART.md             # Быстрый старт
-
+├── logic/                     # Скрипты и утилиты вне API
+│   └── core/
+│       ├── google_sheets/     # Работа с Google Sheets напрямую
+│       ├── parsers/           # Парсеры данных
+│       ├── models/            # Модели и скрипты
+│       └── utils/             # Утилиты
+│
+├── test sheets/               # Тестовые Excel-файлы
+└── docker-compose.dev.yml     # Docker для разработки
 ```
 
-## 🚀 Быстрый старт
+## Быстрый старт
 
-### 1. Запустить базу данных
-
-```bash
-# PostgreSQL + Redis
-docker-compose -f docker-compose.dev.yml up -d
-```
-
-### 2. Запустить Backend
+### 1. Backend
 
 ```bash
 cd backend
-python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8000
 ```
 
 Backend: http://localhost:8000
 
-### 3. Запустить Frontend
+### 2. Frontend
 
 ```bash
 cd frontend
@@ -55,46 +65,12 @@ npm run dev
 
 Frontend: http://localhost:5173
 
----
+### 3. Google Sheets
 
-## 📚 Документация
+Для работы с Google Sheets нужно положить файл `credentials.json` в папку `backend/credentials/`.
 
-- [QUICKSTART.md](QUICKSTART.md) - Подробная инструкция
-- [ARCHITECTURE_DIAGRAMS.md](ARCHITECTURE_DIAGRAMS.md) - Архитектура системы
-- [backend/README.md](backend/README.md) - Backend документация
+## Технологии
 
----
+**Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Radix UI
 
-## 🛠️ Технологии
-
-**Frontend:**
-- React 18
-- TypeScript
-- Vite
-- Tailwind CSS
-- Radix UI
-
-**Backend:**
-- Python 3.11+
-- FastAPI
-- PostgreSQL 16
-- Redis
-- SQLAlchemy
-- Celery
-
----
-
-## 📊 Основные функции
-
-1. ✅ Создание тур-кодов
-2. ✅ Загрузка и парсинг манифестов (Excel)
-3. ✅ Управление базой паломников
-4. ✅ Поиск и фильтрация паломников
-5. ✅ Просмотр туристических пакетов
-6. ✅ История всех операций (audit log)
-
----
-
-**Разработано для Hickmet Premium** 🕌
-# tour_code
-# tour_code
+**Backend:** Python 3.11+, FastAPI, Google Sheets API, SQLAlchemy, PostgreSQL
