@@ -1,29 +1,23 @@
-"""
-FastAPI Main Application
-"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from app.core.config import settings
 from app.core.database import check_db_connection, init_db
-from app.api.v1 import tours, manifest
-
-# Настройка логирования
+from app.api.v1 import tours, manifest, dispatch, pilgrims, tour_packages, dashboard
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-# Создаём FastAPI приложение
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="API для системы управления тур-кодами Hickmet Premium"
 )
 
-# CORS middleware
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -32,22 +26,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ============= События приложения =============
-
 @app.on_event("startup")
 async def startup_event():
-    """При запуске приложения"""
     logger.info(f"🚀 Запуск {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Environment: {settings.APP_ENV}")
-
-    # Проверяем подключение к БД
     if check_db_connection():
         logger.info("✅ PostgreSQL подключен")
     else:
         logger.warning("⚠️  PostgreSQL недоступен")
 
-    # Инициализируем БД (создаём таблицы если нужно)
     try:
         init_db()
     except Exception as e:
@@ -58,22 +45,17 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """При остановке приложения"""
     logger.info("🛑 Остановка приложения")
 
-
-# ============= Роутеры =============
-
-# API v1
 app.include_router(tours.router, prefix="/api/v1")
 app.include_router(manifest.router, prefix="/api/v1")
-
-
-# ============= Базовые endpoints =============
+app.include_router(dispatch.router, prefix="/api/v1")
+app.include_router(pilgrims.router, prefix="/api/v1")
+app.include_router(tour_packages.router, prefix="/api/v1")
+app.include_router(dashboard.router, prefix="/api/v1")
 
 @app.get("/")
 async def root():
-    """Корневой endpoint"""
     return {
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION,

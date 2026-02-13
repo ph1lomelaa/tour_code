@@ -1,7 +1,37 @@
 import { Link } from "react-router";
 import { Package, Users, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { getDashboardStats } from "../../src/lib/api/dashboard";
 
 export function Dashboard() {
+  const [stats, setStats] = useState({
+    total_tours: 0,
+    total_pilgrims: 0,
+    sent_jobs: 0,
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadStats = async () => {
+      setIsLoadingStats(true);
+      try {
+        const data = await getDashboardStats();
+        if (!cancelled) setStats(data);
+      } catch (error) {
+        console.error("Error loading dashboard stats:", error);
+      } finally {
+        if (!cancelled) setIsLoadingStats(false);
+      }
+    };
+
+    loadStats();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="p-12">
       <div className="max-w-6xl mx-auto">
@@ -68,15 +98,15 @@ export function Dashboard() {
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-gradient-to-br from-[#B8985F] to-[#A88952] rounded-2xl p-6 text-white">
             <p className="text-sm opacity-90 mb-2">Всего туров</p>
-            <p className="text-3xl">24</p>
+            <p className="text-3xl">{isLoadingStats ? "..." : stats.total_tours}</p>
           </div>
           <div className="bg-gradient-to-br from-[#8B6F47] to-[#6B5435] rounded-2xl p-6 text-white">
             <p className="text-sm opacity-90 mb-2">Активных паломников</p>
-            <p className="text-3xl">156</p>
+            <p className="text-3xl">{isLoadingStats ? "..." : stats.total_pilgrims}</p>
           </div>
           <div className="bg-gradient-to-br from-[#C9B89A] to-[#B8985F] rounded-2xl p-6 text-white">
-            <p className="text-sm opacity-90 mb-2">Тур кодов выдано</p>
-            <p className="text-3xl">342</p>
+            <p className="text-sm opacity-90 mb-2">Успешных отправок</p>
+            <p className="text-3xl">{isLoadingStats ? "..." : stats.sent_jobs}</p>
           </div>
         </div>
       </div>

@@ -7,6 +7,7 @@ export interface Pilgrim {
   surname: string;
   name: string;
   document: string;
+  iin?: string;
   manager?: string;
 }
 

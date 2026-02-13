@@ -6,8 +6,8 @@ from pydantic import BaseModel
 from typing import List
 import logging
 
-from app.services.manifest_parser import manifest_parser
-from app.services.sheet_pilgrim_parser import sheet_pilgrim_parser
+from app.google_sheet_parser.manifest_parser import manifest_parser
+from app.google_sheet_parser.sheet_pilgrim_parser import sheet_pilgrim_parser
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,8 @@ router = APIRouter(prefix="/manifest", tags=["manifest"])
 class Pilgrim(BaseModel):
     surname: str
     name: str
-    document: str
+    document: str = ""
+    iin: str = ""
     manager: str = ""
 
 
@@ -40,22 +41,6 @@ class CompareResponse(BaseModel):
 
 @router.post("/upload")
 async def upload_manifest(file: UploadFile = File(...)):
-    """
-    Загружает и парсит Excel манифест
-
-    Returns:
-        {
-            "success": true,
-            "pilgrims": [
-                {
-                    "surname": "NOKUSHEVA",
-                    "name": "BAKYTGUL",
-                    "document": "N13964983"
-                }
-            ],
-            "count": 65
-        }
-    """
     try:
         # Проверяем расширение файла
         if not file.filename.endswith(('.xlsx', '.xls')):
@@ -91,17 +76,6 @@ async def upload_manifest(file: UploadFile = File(...)):
 
 @router.post("/compare", response_model=CompareResponse)
 async def compare_with_sheet(request: CompareRequest):
-    """
-    Сравнивает паломников из манифеста с паломниками в Google Sheets
-
-    Returns:
-        {
-            "success": true,
-            "matched": [...],  // Есть везде
-            "in_sheet_not_in_manifest": [...],  // Есть в таблице, НЕТ в манифесте
-            "in_manifest_not_in_sheet": [...]   // Есть в манифесте, НЕТ в таблице
-        }
-    """
     try:
         logger.info(
             f"Сравнение манифеста с листом '{request.sheet_name}' "
@@ -115,10 +89,11 @@ async def compare_with_sheet(request: CompareRequest):
         )
 
         # Создаём множества для быстрого поиска (по номеру паспорта)
-        manifest_docs = {p.document.upper() for p in request.manifest_pilgrims}
+        manifest_docs = {p.document.upper() for p in request.manifest_pilgrims if p.document}
         sheet_docs_map = {
             p["document"].upper(): p
             for p in sheet_pilgrims
+            if p.get("document")
         }
 
         # Те кто есть и в манифесте и в таблице
@@ -131,6 +106,7 @@ async def compare_with_sheet(request: CompareRequest):
                     surname=sp["surname"],
                     name=sp["name"],
                     document=sp["document"],
+                    iin=sp.get("iin", ""),
                     manager=sp["manager"]
                 ))
 
@@ -142,6 +118,7 @@ async def compare_with_sheet(request: CompareRequest):
                     surname=sp["surname"],
                     name=sp["name"],
                     document=sp["document"],
+                    iin=sp.get("iin", ""),
                     manager=sp["manager"]
                 ))
 
@@ -149,7 +126,7 @@ async def compare_with_sheet(request: CompareRequest):
         in_manifest_not_in_sheet = []
         for mp in request.manifest_pilgrims:
             doc = mp.document.upper()
-            if doc not in sheet_docs_map:
+            if not doc or doc not in sheet_docs_map:
                 in_manifest_not_in_sheet.append(mp)
 
         logger.info(

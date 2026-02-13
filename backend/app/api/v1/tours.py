@@ -1,15 +1,13 @@
-"""
-Tours API endpoints
-"""
+
 from fastapi import APIRouter, HTTPException
 from typing import List
 from pydantic import BaseModel
 import logging
 
-from app.services.google_sheets_service import google_sheets_service
+from app.google_sheet_parser.google_sheets_service import google_sheets_service
+from app.google_sheet_parser.sheet_pilgrim_parser import sheet_pilgrim_parser
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter(prefix="/tours", tags=["tours"])
 class SearchByDateRequest(BaseModel):
     date_short: str  # "17.02"
@@ -54,7 +52,40 @@ class SearchByDateResponse(BaseModel):
     message: str = ""
 
 
-# ============= Endpoints =============
+class SheetPilgrimsRequest(BaseModel):
+    spreadsheet_id: str
+    sheet_name: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "spreadsheet_id": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",
+                "sheet_name": "17.02.2026-24.02.2026 ALA-JED"
+            }
+        }
+
+
+class PilgrimInPackage(BaseModel):
+    surname: str
+    name: str
+    document: str = ""
+    iin: str = ""
+    manager: str = ""
+    room_type: str = ""
+    meal_type: str = ""
+
+
+class PackageInfo(BaseModel):
+    package_name: str
+    pilgrims: List[PilgrimInPackage]
+    count: int
+
+
+class SheetPilgrimsResponse(BaseModel):
+    success: bool
+    packages: List[PackageInfo]
+    total_count: int
+    message: str = ""
 
 @router.post("/search-by-date", response_model=SearchByDateResponse)
 async def search_tours_by_date(
@@ -133,13 +164,54 @@ async def test_google_sheets():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/sheet-pilgrims", response_model=SheetPilgrimsResponse)
+async def get_sheet_pilgrims(request: SheetPilgrimsRequest):
+    try:
+        logger.info(
+            f"Запрос паломников из листа '{request.sheet_name}' "
+            f"(spreadsheet: {request.spreadsheet_id})"
+        )
+
+        packages_raw = sheet_pilgrim_parser.parse_sheet_by_packages(
+            request.spreadsheet_id,
+            request.sheet_name
+        )
+
+        packages = []
+        total = 0
+
+        for pkg in packages_raw:
+            pilgrims = [
+                PilgrimInPackage(**p) for p in pkg["pilgrims"]
+            ]
+            packages.append(PackageInfo(
+                package_name=pkg["package_name"],
+                pilgrims=pilgrims,
+                count=pkg["count"]
+            ))
+            total += pkg["count"]
+
+        return SheetPilgrimsResponse(
+            success=True,
+            packages=packages,
+            total_count=total,
+            message=f"Найдено {len(packages)} пакетов, всего {total} паломников"
+        )
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Ошибка получения паломников: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ошибка получения паломников: {str(e)}"
+        )
+
+
 @router.get("/debug/sheets/{table_name}")
 async def debug_get_sheets(table_name: str):
-    """Получить все листы из таблицы для отладки"""
     try:
         tables = google_sheets_service.get_all_spreadsheets()
-
-        # Ищем таблицу по названию
         table_id = None
         for name, tid in tables.items():
             if table_name.lower() in name.lower():

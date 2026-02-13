@@ -1,46 +1,30 @@
+"""
+Обёртка над db/ — реэкспортирует engine, session и утилиты,
+используя настройки из app.core.config.
+"""
 import logging
-from typing import Generator
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import text
 
-from app.core.config import settings
+from db.base import Base
+from db.models import *  # noqa: F401,F403 — чтобы Base увидел все таблицы
+from db.setup import engine, SessionLocal, get_db, init_db as setup_init_db  # noqa: F401
 
 logger = logging.getLogger(__name__)
-engine = create_engine(
-    settings.DATABASE_URL,
-    pool_pre_ping=True,  # Проверка соединения перед использованием
-    pool_size=settings.DATABASE_POOL_SIZE,
-    max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    echo=settings.DEBUG,  # Логирование SQL запросов в debug режиме
-)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def get_db() -> Generator[Session, None, None]:
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 def init_db():
-    from app.models import Base
-
     logger.info("Инициализация базы данных...")
-    Base.metadata.create_all(bind=engine)
-    logger.info("✅ База данных инициализирована")
+    setup_init_db()
+    logger.info("База данных инициализирована")
 
 
 def check_db_connection():
     try:
-        db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        db.close()
-        logger.info("✅ Подключение к БД успешно")
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("Подключение к БД успешно")
         return True
     except Exception as e:
-        logger.error(f"❌ Ошибка подключения к БД: {e}")
+        logger.error("Ошибка подключения к БД: %s", e)
         return False

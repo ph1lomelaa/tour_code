@@ -3,7 +3,6 @@ Configuration settings
 """
 from pydantic_settings import BaseSettings
 from typing import List
-import os
 
 
 class Settings(BaseSettings):
@@ -50,6 +49,28 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
 
+    # Dispatch queue / broker
+    DISPATCH_TARGET_URL: str = ""
+    DISPATCH_REQUEST_TIMEOUT_SECONDS: int = 30
+    DISPATCH_MAX_ATTEMPTS: int = 5
+    DISPATCH_RETRY_DELAY_SECONDS: int = 60
+    DISPATCH_QUEUE_NAME: str = "tour_dispatch"
+
+    # External payload defaults (voucher/partner/queries)
+    DISPATCH_MODULE: str = "voucher"
+    DISPATCH_SECTION: str = "partner"
+    DISPATCH_OBJECT: str = "queries"
+    DISPATCH_PARAM1: str = "163"
+    DISPATCH_PARAM2: str = "save"
+    DISPATCH_FORM_ID: int = 163
+    DISPATCH_RETURN_FIELD: str = "q_number"
+    DISPATCH_AGENT_LOGIN: str = ""
+    DISPATCH_AGENT_PASS: str = ""
+    DISPATCH_TOURAGENT_NAME: str = "ADIYA TRAVEL"
+    DISPATCH_TOURAGENT_BIN: str = ""
+    DISPATCH_DEFAULT_AIRLINE: str = "DV"
+    DISPATCH_DEFAULT_DOC_PRODUCTION: str = "MIA OF RK"
+
     class Config:
         env_file = ".env"
         case_sensitive = True
@@ -57,8 +78,3 @@ class Settings(BaseSettings):
 
 # Создаём глобальный instance настроек
 settings = Settings()
-
-
-# Создаём необходимые директории
-os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-os.makedirs("./logs", exist_ok=True)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import {
@@ -17,9 +17,11 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { Calendar, Clock, MapPin, Building, Upload, Plus } from "lucide-react";
-import { Textarea } from "../components/ui/textarea";
-import { searchToursByDate, TourOption } from "../../src/lib/api/tours";
-import { uploadManifest, compareManifestWithSheet, Pilgrim } from "../../src/lib/api/manifest";
+import { searchToursByDate, getSheetPilgrims, TourOption, PilgrimInPackage } from "../../src/lib/api/tours";
+import { uploadManifest, Pilgrim } from "../../src/lib/api/manifest";
+import { enqueueDispatchJob } from "../../src/lib/api/dispatch";
+import { getTourPackage } from "../../src/lib/api/tourPackages";
+import { useSearchParams } from "react-router";
 
 // Список отелей
 const hotels = [
@@ -33,15 +35,287 @@ const hotels = [
   "Millennium Al Aqeeq Hotel",
 ];
 
-type DisplayPilgrim = {
-  id: number;
-  lastName: string;
-  firstName: string;
-  passportNumber: string;
-  manager: string;
+// Паломник с привязкой к пакету
+type PilgrimWithPackage = PilgrimInPackage & { package_name: string; tour_name: string };
+type ManifestPilgrimWithPackage = Pilgrim & { package_name?: string; tour_name?: string; tour_code?: string };
+type MatchedPilgrim = Pilgrim & { package_name: string; tour_name: string; tour_code?: string };
+
+type EditableField = "surname" | "name" | "document";
+type EditableTable = "sheet" | "manifest";
+type EditingCell = {
+  table: EditableTable;
+  rowIndex: number;
+  field: EditableField;
+  value: string;
+};
+
+type ComparablePilgrim = {
+  surname?: string;
+  name?: string;
+  document?: string;
+  iin?: string;
+};
+
+const normalizeDocument = (value?: string) =>
+  (value || "").toUpperCase().replace(/[^0-9A-ZА-ЯЁ_]/g, "");
+
+const normalizeIin = (value?: string) =>
+  (value || "").replace(/\D/g, "");
+
+const normalizeNamePart = (value?: string) =>
+  (value || "").toUpperCase().replace(/[^A-ZА-ЯЁ]/g, "");
+
+const buildMatchKeys = (pilgrim: ComparablePilgrim): string[] => {
+  const keys: string[] = [];
+
+  const doc = normalizeDocument(pilgrim.document);
+  if (doc) {
+    keys.push(`DOC:${doc}`);
+  }
+
+  const iin = normalizeIin(pilgrim.iin);
+  if (iin) {
+    keys.push(`IIN:${iin}`);
+  }
+
+  const surname = normalizeNamePart(pilgrim.surname);
+  const name = normalizeNamePart(pilgrim.name);
+  if (surname && name) {
+    keys.push(`NAME:${surname}|${name}`);
+  }
+
+  return keys;
+};
+
+const levenshteinDistance = (a: string, b: string): number => {
+  if (a === b) return 0;
+  if (!a) return b.length;
+  if (!b) return a.length;
+
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  const matrix: number[][] = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+  for (let i = 0; i < rows; i += 1) matrix[i][0] = i;
+  for (let j = 0; j < cols; j += 1) matrix[0][j] = j;
+
+  for (let i = 1; i < rows; i += 1) {
+    for (let j = 1; j < cols; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+
+  return matrix[a.length][b.length];
+};
+
+const isSingleAdjacentTransposition = (a: string, b: string): boolean => {
+  if (!a || !b || a.length !== b.length) return false;
+
+  let firstDiff = -1;
+  let secondDiff = -1;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] === b[i]) continue;
+    if (firstDiff === -1) {
+      firstDiff = i;
+      continue;
+    }
+    if (secondDiff === -1) {
+      secondDiff = i;
+      continue;
+    }
+    return false;
+  }
+
+  if (firstDiff === -1 || secondDiff === -1) return false;
+  if (secondDiff !== firstDiff + 1) return false;
+
+  return (
+    a[firstDiff] === b[secondDiff] &&
+    a[secondDiff] === b[firstDiff]
+  );
+};
+
+const nameDistanceScore = (a: string, b: string): number => {
+  if (a === b) return 0;
+  const distance = levenshteinDistance(a, b);
+  if (isSingleAdjacentTransposition(a, b)) {
+    return Math.min(distance, 1);
+  }
+  return distance;
+};
+
+const isPassportSimilar = (sheetDocument?: string, manifestDocument?: string): boolean => {
+  const sheetDoc = normalizeDocument(sheetDocument);
+  const manifestDoc = normalizeDocument(manifestDocument);
+
+  if (!sheetDoc || !manifestDoc) {
+    return false;
+  }
+
+  if (sheetDoc === manifestDoc) {
+    return true;
+  }
+
+  const sheetDigits = sheetDoc.replace(/\D/g, "");
+  const manifestDigits = manifestDoc.replace(/\D/g, "");
+  if (sheetDigits && manifestDigits) {
+    if (sheetDigits === manifestDigits) {
+      return true;
+    }
+    const digitsDistance = levenshteinDistance(sheetDigits, manifestDigits);
+    if (digitsDistance <= 1 && Math.abs(sheetDigits.length - manifestDigits.length) <= 1) {
+      return true;
+    }
+  }
+
+  const fullDistance = levenshteinDistance(sheetDoc, manifestDoc);
+  return fullDistance <= 2 && Math.abs(sheetDoc.length - manifestDoc.length) <= 1;
+};
+
+const dedupeManifestPilgrims = (pilgrims: Pilgrim[]): Pilgrim[] => {
+  const seen = new Set<string>();
+  const unique: Pilgrim[] = [];
+
+  for (const pilgrim of pilgrims) {
+    const doc = normalizeDocument(pilgrim.document);
+    const iin = normalizeIin(pilgrim.iin);
+    const surname = normalizeNamePart(pilgrim.surname);
+    const name = normalizeNamePart(pilgrim.name);
+
+    const key = doc
+      ? `DOC:${doc}`
+      : iin
+        ? `IIN:${iin}`
+        : surname && name
+          ? `NAME:${surname}|${name}`
+          : `RAW:${pilgrim.surname}|${pilgrim.name}|${pilgrim.document || ""}|${pilgrim.iin || ""}`;
+
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(pilgrim);
+  }
+
+  return unique;
+};
+
+const findFuzzyManifestMatchIndex = (
+  sheetPilgrim: PilgrimWithPackage,
+  manifestPilgrims: Pilgrim[],
+  matchedManifestIndexes: Set<number>
+): number | null => {
+  const sheetSurname = normalizeNamePart(sheetPilgrim.surname);
+  const sheetName = normalizeNamePart(sheetPilgrim.name);
+  const sheetDoc = normalizeDocument(sheetPilgrim.document);
+
+  if (!sheetSurname || !sheetName) {
+    return null;
+  }
+
+  let bestIndex: number | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (let index = 0; index < manifestPilgrims.length; index += 1) {
+    if (matchedManifestIndexes.has(index)) continue;
+
+    const manifestPilgrim = manifestPilgrims[index];
+    const manifestSurname = normalizeNamePart(manifestPilgrim.surname);
+    const manifestName = normalizeNamePart(manifestPilgrim.name);
+    const manifestDoc = normalizeDocument(manifestPilgrim.document);
+
+    if (!manifestSurname || !manifestName) continue;
+    if (sheetSurname[0] !== manifestSurname[0] || sheetName[0] !== manifestName[0]) continue;
+
+    const surnameDistance = nameDistanceScore(sheetSurname, manifestSurname);
+    const nameDistance = nameDistanceScore(sheetName, manifestName);
+
+    if (surnameDistance > 1 || nameDistance > 2) continue;
+
+    // Если в обеих записях есть паспорт, он тоже должен быть похож.
+    if (sheetDoc && manifestDoc && !isPassportSimilar(sheetDoc, manifestDoc)) {
+      continue;
+    }
+
+    // Если паспорт есть только в таблице, а в манифесте пусто, считаем это ненадёжным матчем.
+    if (sheetDoc && !manifestDoc) {
+      continue;
+    }
+
+    const score = surnameDistance * 2 + nameDistance + (sheetDoc ? 0 : 1);
+    if (score < bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  }
+
+  // Ограничиваем слишком слабые нестрогие матчи.
+  if (bestIndex === null || bestScore > 4) {
+    return null;
+  }
+
+  return bestIndex;
+};
+
+const findPassportDrivenManifestMatchIndex = (
+  sheetPilgrim: PilgrimWithPackage,
+  manifestPilgrims: Pilgrim[],
+  matchedManifestIndexes: Set<number>
+): number | null => {
+  const sheetDoc = normalizeDocument(sheetPilgrim.document);
+  if (!sheetDoc) {
+    return null;
+  }
+
+  const sheetSurname = normalizeNamePart(sheetPilgrim.surname);
+  const sheetName = normalizeNamePart(sheetPilgrim.name);
+  const candidates: Array<{ index: number; score: number }> = [];
+
+  for (let index = 0; index < manifestPilgrims.length; index += 1) {
+    if (matchedManifestIndexes.has(index)) continue;
+
+    const manifestPilgrim = manifestPilgrims[index];
+    const manifestDoc = normalizeDocument(manifestPilgrim.document);
+    if (!manifestDoc || !isPassportSimilar(sheetDoc, manifestDoc)) continue;
+
+    const manifestSurname = normalizeNamePart(manifestPilgrim.surname);
+    const manifestName = normalizeNamePart(manifestPilgrim.name);
+    const surnameDistance =
+      sheetSurname && manifestSurname ? nameDistanceScore(sheetSurname, manifestSurname) : 0;
+    const nameDistance =
+      sheetName && manifestName ? nameDistanceScore(sheetName, manifestName) : 0;
+
+    // Если паспорт похож, допускаем более мягкое сравнение ФИО, но отсекаем явно чужие записи.
+    if ((sheetSurname && manifestSurname && surnameDistance > 3) || (sheetName && manifestName && nameDistance > 3)) {
+      continue;
+    }
+
+    candidates.push({
+      index,
+      score: surnameDistance * 2 + nameDistance,
+    });
+  }
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  candidates.sort((a, b) => a.score - b.score);
+
+  if (candidates.length > 1 && candidates[0].score === candidates[1].score && candidates[0].score > 0) {
+    return null;
+  }
+
+  return candidates[0].index;
 };
 
 export function CreateTourCode() {
+  const [searchParams] = useSearchParams();
+  const prefilledTourId = searchParams.get("tourId");
+
   const [selectedDateShort, setSelectedDateShort] = useState("");
   const [dateRange, setDateRange] = useState("");
   const [days, setDays] = useState(0);
@@ -49,53 +323,172 @@ export function CreateTourCode() {
   const [selectedFlight, setSelectedFlight] = useState("");
   const [selectedCountry, setSelectedCountry] = useState("Саудовская Аравия");
   const [selectedHotel, setSelectedHotel] = useState("");
-  const [parsedPilgrims, setParsedPilgrims] = useState<DisplayPilgrim[]>([]);
 
-  // Manifest state
-  const [manifestFile, setManifestFile] = useState<File | null>(null);
-  const [manifestPilgrims, setManifestPilgrims] = useState<Pilgrim[]>([]);
-  const [isUploadingManifest, setIsUploadingManifest] = useState(false);
-  const [manifestError, setManifestError] = useState<string | null>(null);
-
-  // Comparison results
-  const [matchedPilgrims, setMatchedPilgrims] = useState<Pilgrim[]>([]);
-  const [inSheetNotInManifest, setInSheetNotInManifest] = useState<Pilgrim[]>([]);
-  const [inManifestNotInSheet, setInManifestNotInSheet] = useState<Pilgrim[]>([]);
-  const [isComparing, setIsComparing] = useState(false);
-
+  // Tour search
   const [tourOptions, setTourOptions] = useState<TourOption[]>([]);
   const [isLoadingTours, setIsLoadingTours] = useState(false);
   const [tourSearchError, setTourSearchError] = useState<string | null>(null);
   const [dateInput, setDateInput] = useState("");
   const [selectedTour, setSelectedTour] = useState<TourOption | null>(null);
 
-  const mapPilgrimsToDisplay = (pilgrims: Pilgrim[]) =>
-    pilgrims.map((p, index) => ({
-      id: index + 1,
-      lastName: p.surname,
-      firstName: p.name,
-      passportNumber: p.document,
-      manager: p.manager ?? "",
-    }));
-  const calculateDays = (start: string, end: string) => {
-    const [dayS, monthS, yearS] = start.split(".");
-    const [dayE, monthE, yearE] = end.split(".");
-    const startDate = new Date(
-      parseInt(yearS),
-      parseInt(monthS) - 1,
-      parseInt(dayS)
-    );
-    const endDate = new Date(
-      parseInt(yearE),
-      parseInt(monthE) - 1,
-      parseInt(dayE)
-    );
-    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+  // Manifest
+  const [manifestFile, setManifestFile] = useState<File | null>(null);
+  const [manifestPilgrims, setManifestPilgrims] = useState<Pilgrim[]>([]);
+  const [isUploadingManifest, setIsUploadingManifest] = useState(false);
+  const [manifestError, setManifestError] = useState<string | null>(null);
+
+  // Flat comparison results
+  const [allMatched, setAllMatched] = useState<MatchedPilgrim[]>([]);
+  const [allInSheetNotManifest, setAllInSheetNotManifest] = useState<PilgrimWithPackage[]>([]);
+  const [allInManifestNotSheet, setAllInManifestNotSheet] = useState<ManifestPilgrimWithPackage[]>([]);
+  const [isComparing, setIsComparing] = useState(false);
+  const [isQueueingDispatch, setIsQueueingDispatch] = useState(false);
+  const [dispatchInfo, setDispatchInfo] = useState<string | null>(null);
+  const [isPrefillingFromPackage, setIsPrefillingFromPackage] = useState(false);
+  const [prefillDoneForTourId, setPrefillDoneForTourId] = useState<string | null>(null);
+  const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
+
+  // ============= Handlers =============
+
+  const normalizeEditableValue = (field: EditableField, rawValue: string): string => {
+    const value = rawValue.trim();
+    if (!value) return "";
+    if (field === "document") return value.toUpperCase();
+    return value.toUpperCase();
   };
 
-  // Обработка поиска туров по дате
+  const beginEditCell = (
+    table: EditableTable,
+    rowIndex: number,
+    field: EditableField,
+    value: string
+  ) => {
+    setEditingCell({
+      table,
+      rowIndex,
+      field,
+      value: value || "",
+    });
+  };
+
+  const commitEditCell = () => {
+    if (!editingCell) return;
+
+    const normalizedValue = normalizeEditableValue(editingCell.field, editingCell.value);
+    if (editingCell.table === "sheet") {
+      setAllInSheetNotManifest((prev) =>
+        prev.map((row, index) =>
+          index === editingCell.rowIndex
+            ? { ...row, [editingCell.field]: normalizedValue }
+            : row
+        )
+      );
+    } else {
+      setAllInManifestNotSheet((prev) =>
+        prev.map((row, index) =>
+          index === editingCell.rowIndex
+            ? { ...row, [editingCell.field]: normalizedValue }
+            : row
+        )
+      );
+    }
+
+    setEditingCell(null);
+  };
+
+  const cancelEditCell = () => {
+    setEditingCell(null);
+  };
+
+  useEffect(() => {
+    if (!prefilledTourId || prefillDoneForTourId === prefilledTourId) return;
+
+    let cancelled = false;
+    const prefillFromPackage = async () => {
+      setIsPrefillingFromPackage(true);
+      setManifestError(null);
+
+      try {
+        const detail = await getTourPackage(prefilledTourId);
+        if (cancelled) return;
+
+        const preselectedTour: TourOption = {
+          spreadsheet_id: detail.spreadsheet_id || "",
+          spreadsheet_name: detail.spreadsheet_name || "",
+          sheet_name: detail.sheet_name || "",
+          date_start: detail.date_start || "",
+          date_end: detail.date_end || "",
+          days: detail.days || 0,
+          route: detail.route || "",
+          departure_city: detail.departure_city || "",
+        };
+
+        setSelectedTour(preselectedTour);
+        setSelectedDateShort(preselectedTour.date_start);
+        setDateRange(`${preselectedTour.date_start} - ${preselectedTour.date_end}`);
+        setDays(preselectedTour.days);
+        setAvailableFlights(preselectedTour.route ? [preselectedTour.route] : []);
+        setSelectedFlight(preselectedTour.route || "");
+        setSelectedCountry(detail.country || "Саудовская Аравия");
+        setSelectedHotel(detail.hotel || "");
+
+        const dateParts = (detail.date_start || "").split(".");
+        if (dateParts.length >= 2) {
+          setDateInput(`${dateParts[0]}.${dateParts[1]}`);
+        }
+
+        const matchedFromDb: MatchedPilgrim[] = detail.matched.map((row) => ({
+          surname: row.surname,
+          name: row.name,
+          document: row.document || "",
+          iin: "",
+          manager: "",
+          package_name: row.package_name || "",
+          tour_name: detail.sheet_name || "",
+          tour_code: row.tour_code || "",
+        }));
+        setAllMatched(matchedFromDb);
+
+        const inSheetFromDb: PilgrimWithPackage[] = detail.in_sheet_not_in_manifest.map((row) => ({
+          surname: row.surname,
+          name: row.name,
+          document: row.document || "",
+          iin: "",
+          manager: "",
+          room_type: "",
+          meal_type: "",
+          package_name: row.package_name || "",
+          tour_name: row.tour_name || detail.sheet_name || "",
+        }));
+        setAllInSheetNotManifest(inSheetFromDb);
+
+        const inManifestFromDb: ManifestPilgrimWithPackage[] = detail.in_manifest_not_in_sheet.map((row) => ({
+          surname: row.surname,
+          name: row.name,
+          document: row.document || "",
+          iin: "",
+          package_name: row.package_name || "",
+          tour_name: row.tour_name || detail.sheet_name || "",
+        }));
+        setAllInManifestNotSheet(inManifestFromDb);
+        setDispatchInfo(null);
+        setPrefillDoneForTourId(prefilledTourId);
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error prefilling from package:", error);
+          setManifestError("Не удалось загрузить данные тура для автозаполнения");
+        }
+      } finally {
+        if (!cancelled) setIsPrefillingFromPackage(false);
+      }
+    };
+
+    prefillFromPackage();
+    return () => {
+      cancelled = true;
+    };
+  }, [prefilledTourId, prefillDoneForTourId]);
+
   const handleSearchTours = async () => {
     if (!dateInput || dateInput.length < 4) {
       setTourSearchError("Введите дату в формате ДД.ММ (например, 17.02)");
@@ -122,18 +515,21 @@ export function CreateTourCode() {
     }
   };
 
-  // Обработка выбора конкретного тура из результатов поиска
   const handleTourSelect = (tour: TourOption) => {
     setSelectedTour(tour);
     setSelectedDateShort(tour.date_start);
-    const range = `${tour.date_start} - ${tour.date_end}`;
-    setDateRange(range);
+    setDateRange(`${tour.date_start} - ${tour.date_end}`);
     setDays(tour.days);
     setAvailableFlights([tour.route]);
     setSelectedFlight(tour.route);
+
+    // Сбрасываем результаты при выборе нового тура
+    setAllMatched([]);
+    setAllInSheetNotManifest([]);
+    setAllInManifestNotSheet([]);
+    setDispatchInfo(null);
   };
 
-  // Обработка загрузки Excel манифеста
   const handleManifestUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -141,15 +537,19 @@ export function CreateTourCode() {
     setManifestFile(file);
     setIsUploadingManifest(true);
     setManifestError(null);
+    setAllMatched([]);
+    setAllInSheetNotManifest([]);
+    setAllInManifestNotSheet([]);
+    setDispatchInfo(null);
 
     try {
-      const response = await uploadManifest(file);
-      setManifestPilgrims(response.pilgrims);
-      setParsedPilgrims(mapPilgrimsToDisplay(response.pilgrims));
+      // 1. Парсим манифест
+      const uploadResponse = await uploadManifest(file);
+      setManifestPilgrims(uploadResponse.pilgrims);
 
-      // Автоматически сравниваем с выбранным листом
+      // 2. Если тур выбран — сравниваем по пакетам
       if (selectedTour) {
-        await compareWithSheet(response.pilgrims);
+        await compareByPackages(uploadResponse.pilgrims);
       }
     } catch (error) {
       console.error("Error uploading manifest:", error);
@@ -159,26 +559,154 @@ export function CreateTourCode() {
     }
   };
 
-  // Сравнение манифеста с Google Sheets
-  const compareWithSheet = async (pilgrims: Pilgrim[]) => {
-    if (!selectedTour) {
-      setManifestError("Сначала выберите тур");
-      return;
-    }
+  const compareByPackages = async (mPilgrims: Pilgrim[]) => {
+    if (!selectedTour) return;
 
     setIsComparing(true);
     setManifestError(null);
 
     try {
-      const response = await compareManifestWithSheet({
-        spreadsheet_id: selectedTour.spreadsheet_id,
-        sheet_name: selectedTour.sheet_name,
-        manifest_pilgrims: pilgrims,
+      const normalizedManifestPilgrims = dedupeManifestPilgrims(mPilgrims);
+
+      const sheetResponse = await getSheetPilgrims(
+        selectedTour.spreadsheet_id,
+        selectedTour.sheet_name
+      );
+
+      const manifestKeyIndexMap = new Map<string, number[]>();
+      normalizedManifestPilgrims.forEach((p, index) => {
+        const keys = buildMatchKeys(p);
+        for (const key of keys) {
+          const indexes = manifestKeyIndexMap.get(key) || [];
+          indexes.push(index);
+          manifestKeyIndexMap.set(key, indexes);
+        }
       });
 
-      setMatchedPilgrims(response.matched);
-      setInSheetNotInManifest(response.in_sheet_not_in_manifest);
-      setInManifestNotInSheet(response.in_manifest_not_in_sheet);
+      const matchedManifestIndexes = new Set<number>();
+      const matched: MatchedPilgrim[] = [];
+      const inSheetNotManifest: PilgrimWithPackage[] = [];
+      const matchedByPassport: MatchedPilgrim[] = [];
+      const matchedByFuzzyName: MatchedPilgrim[] = [];
+
+      for (const pkg of sheetResponse.packages) {
+        for (const p of pkg.pilgrims) {
+          const withPkg: PilgrimWithPackage = {
+            ...p,
+            package_name: pkg.package_name,
+            tour_name: selectedTour.sheet_name,
+          };
+
+          const sheetKeys = buildMatchKeys(withPkg);
+          let matchedManifestIndex: number | null = null;
+
+          for (const key of sheetKeys) {
+            const manifestIndexes = manifestKeyIndexMap.get(key);
+            if (!manifestIndexes || manifestIndexes.length === 0) continue;
+
+            while (manifestIndexes.length > 0) {
+              const manifestIndex = manifestIndexes.shift();
+              if (manifestIndex === undefined) break;
+              if (!matchedManifestIndexes.has(manifestIndex)) {
+                matchedManifestIndexes.add(manifestIndex);
+                matchedManifestIndex = manifestIndex;
+                break;
+              }
+            }
+
+            if (matchedManifestIndex !== null) break;
+          }
+
+          if (matchedManifestIndex !== null) {
+            const manifestPilgrim = normalizedManifestPilgrims[matchedManifestIndex];
+            matched.push({
+              ...manifestPilgrim,
+              // В совпадениях ФИО/документ берём из манифеста, пакет — из таблицы
+              package_name: withPkg.package_name,
+              tour_name: withPkg.tour_name,
+              iin: manifestPilgrim.iin || withPkg.iin,
+            });
+          } else {
+            inSheetNotManifest.push(withPkg);
+          }
+        }
+      }
+
+      // Второй проход: в первую очередь пробуем "похожий паспорт + близкое ФИО".
+      const passportUnmatchedSheet: PilgrimWithPackage[] = [];
+      for (const sheetPilgrim of inSheetNotManifest) {
+        const passportDrivenIndex = findPassportDrivenManifestMatchIndex(
+          sheetPilgrim,
+          normalizedManifestPilgrims,
+          matchedManifestIndexes
+        );
+
+        if (passportDrivenIndex === null) {
+          passportUnmatchedSheet.push(sheetPilgrim);
+          continue;
+        }
+
+        matchedManifestIndexes.add(passportDrivenIndex);
+        const manifestPilgrim = normalizedManifestPilgrims[passportDrivenIndex];
+        const matchedPilgrim: MatchedPilgrim = {
+          ...manifestPilgrim,
+          package_name: sheetPilgrim.package_name,
+          tour_name: sheetPilgrim.tour_name,
+          iin: manifestPilgrim.iin || sheetPilgrim.iin,
+        };
+        matched.push(matchedPilgrim);
+        matchedByPassport.push(matchedPilgrim);
+      }
+
+      // Третий проход: нестрогое совпадение по ФИО + похожесть паспорта (если оба паспорта есть).
+      const stillUnmatchedSheet: PilgrimWithPackage[] = [];
+      for (const sheetPilgrim of passportUnmatchedSheet) {
+        const fuzzyIndex = findFuzzyManifestMatchIndex(
+          sheetPilgrim,
+          normalizedManifestPilgrims,
+          matchedManifestIndexes
+        );
+
+        if (fuzzyIndex === null) {
+          stillUnmatchedSheet.push(sheetPilgrim);
+          continue;
+        }
+
+        matchedManifestIndexes.add(fuzzyIndex);
+        const manifestPilgrim = normalizedManifestPilgrims[fuzzyIndex];
+        const matchedPilgrim: MatchedPilgrim = {
+          ...manifestPilgrim,
+          package_name: sheetPilgrim.package_name,
+          tour_name: sheetPilgrim.tour_name,
+          iin: manifestPilgrim.iin || sheetPilgrim.iin,
+        };
+        matched.push(matchedPilgrim);
+        matchedByFuzzyName.push(matchedPilgrim);
+      }
+
+      if (matchedByPassport.length > 0 || matchedByFuzzyName.length > 0) {
+        console.info(
+          "Нестрогие совпадения",
+          {
+            byPassport: matchedByPassport.map((p) => `${p.surname} ${p.name} | ${p.document || "-"}`),
+            byName: matchedByFuzzyName.map((p) => `${p.surname} ${p.name} | ${p.document || "-"}`),
+          }
+        );
+      }
+
+      const inManifestNotSheet: ManifestPilgrimWithPackage[] = [];
+      normalizedManifestPilgrims.forEach((p, index) => {
+        if (!matchedManifestIndexes.has(index)) {
+          inManifestNotSheet.push({
+            ...p,
+            tour_name: selectedTour.sheet_name,
+          });
+        }
+      });
+
+      setAllMatched(matched);
+      setAllInSheetNotManifest(stillUnmatchedSheet);
+      setAllInManifestNotSheet(inManifestNotSheet);
     } catch (error) {
       console.error("Error comparing:", error);
       setManifestError("Ошибка сравнения с таблицей");
@@ -187,10 +715,158 @@ export function CreateTourCode() {
     }
   };
 
-  // Удаление паломника из списка совпадений
-  const handleRemovePilgrim = (document: string) => {
-    setMatchedPilgrims(prev => prev.filter(p => p.document !== document));
+  const hasResults = allMatched.length > 0 || allInSheetNotManifest.length > 0 || allInManifestNotSheet.length > 0;
+
+  const handleAddToMatchedFromSheet = (index: number) => {
+    const row = allInSheetNotManifest[index];
+    if (!row) return;
+
+    const addedRow: MatchedPilgrim = {
+      surname: row.surname,
+      name: row.name,
+      document: row.document || "",
+      iin: row.iin || "",
+      manager: row.manager || "",
+      package_name: row.package_name,
+      tour_name: row.tour_name,
+      tour_code: "",
+    };
+
+    setAllMatched((prev) => {
+      const alreadyExists = prev.some((p) =>
+        normalizeNamePart(p.surname) === normalizeNamePart(addedRow.surname) &&
+        normalizeNamePart(p.name) === normalizeNamePart(addedRow.name) &&
+        normalizeDocument(p.document) === normalizeDocument(addedRow.document) &&
+        (p.package_name || "") === (addedRow.package_name || "")
+      );
+      if (alreadyExists) return prev;
+      return [...prev, addedRow];
+    });
+
+    setAllInSheetNotManifest((prev) => prev.filter((_, i) => i !== index));
   };
+
+  const handleCreateTourCode = async () => {
+    if (!selectedTour) {
+      setManifestError("Сначала выберите тур");
+      return;
+    }
+    if (!selectedHotel || !selectedFlight || !selectedCountry) {
+      setManifestError("Заполните страну, рейс и отель");
+      return;
+    }
+    if (!hasResults && (!manifestFile || manifestPilgrims.length === 0)) {
+      setManifestError("Сначала загрузите манифест");
+      return;
+    }
+    if (allMatched.length === 0) {
+      setManifestError("Нет совпадений для отправки");
+      return;
+    }
+
+    setIsQueueingDispatch(true);
+    setManifestError(null);
+    setDispatchInfo(null);
+
+    try {
+      const response = await enqueueDispatchJob({
+        tour: {
+          spreadsheet_id: selectedTour.spreadsheet_id,
+          spreadsheet_name: selectedTour.spreadsheet_name,
+          sheet_name: selectedTour.sheet_name,
+          date_start: selectedTour.date_start,
+          date_end: selectedTour.date_end,
+          days: selectedTour.days,
+          route: selectedTour.route,
+          departure_city: selectedTour.departure_city,
+        },
+        selection: {
+          country: selectedCountry,
+          hotel: selectedHotel,
+          flight: selectedFlight,
+          remark: "",
+        },
+        results: {
+          matched: allMatched.map((p) => ({
+            surname: p.surname,
+            name: p.name,
+            document: p.document || "",
+            package_name: p.package_name,
+            tour_name: p.tour_name,
+          })),
+          in_sheet_not_in_manifest: allInSheetNotManifest.map((p) => ({
+            surname: p.surname,
+            name: p.name,
+            document: p.document || "",
+            package_name: p.package_name,
+            tour_name: p.tour_name,
+          })),
+          in_manifest_not_in_sheet: allInManifestNotSheet.map((p) => ({
+            surname: p.surname,
+            name: p.name,
+            document: p.document || "",
+            package_name: p.package_name || "",
+            tour_name: p.tour_name || "",
+          })),
+        },
+        manifest_filename: manifestFile.name,
+      });
+
+      setDispatchInfo(`Задача поставлена в очередь: ${response.id} (status: ${response.status})`);
+    } catch (error) {
+      console.error("Error queueing dispatch:", error);
+      setManifestError("Не удалось поставить задачу в очередь");
+    } finally {
+      setIsQueueingDispatch(false);
+    }
+  };
+
+  const renderEditableCell = (
+    table: EditableTable,
+    rowIndex: number,
+    field: EditableField,
+    value: string,
+    textClassName: string
+  ) => {
+    const isEditing =
+      editingCell?.table === table &&
+      editingCell?.rowIndex === rowIndex &&
+      editingCell?.field === field;
+
+    if (isEditing && editingCell) {
+      return (
+        <Input
+          autoFocus
+          value={editingCell.value}
+          onChange={(event) =>
+            setEditingCell((prev) => (prev ? { ...prev, value: event.target.value } : prev))
+          }
+          onBlur={commitEditCell}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") commitEditCell();
+            if (event.key === "Escape") cancelEditCell();
+          }}
+          className="h-8 bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+        />
+      );
+    }
+
+    const displayValue = value || "-";
+    return (
+      <button
+        type="button"
+        className={`${textClassName} text-left w-full`}
+        onDoubleClick={() => beginEditCell(table, rowIndex, field, value)}
+        title="Двойной клик для редактирования"
+      >
+        {displayValue}
+      </button>
+    );
+  };
+
+  const hotelOptions = selectedHotel && !hotels.includes(selectedHotel)
+    ? [selectedHotel, ...hotels]
+    : hotels;
 
   return (
     <div className="p-6 md:p-12">
@@ -206,6 +882,11 @@ export function CreateTourCode() {
         {/* Form */}
         <div className="bg-white rounded-2xl p-6 md:p-8 shadow-lg border border-[#E5DDD0]">
           <div className="space-y-6">
+            {isPrefillingFromPackage && (
+              <p className="text-sm text-[#6B5435]">
+                Загружаю сохраненные данные выбранного тура...
+              </p>
+            )}
             {/* Поиск туров по дате */}
             <div className="space-y-4">
               <div>
@@ -247,7 +928,8 @@ export function CreateTourCode() {
                   </h4>
                   <div className="space-y-2">
                     {tourOptions.map((tour, index) => {
-                      const isSelected = selectedTour?.date_start === tour.date_start && selectedTour?.route === tour.route;
+                      const isSelected = selectedTour?.spreadsheet_id === tour.spreadsheet_id
+                        && selectedTour?.sheet_name === tour.sheet_name;
                       return (
                         <div
                           key={index}
@@ -298,7 +980,6 @@ export function CreateTourCode() {
                   </label>
                   <div className="text-base text-[#2B2318]">{dateRange}</div>
                 </div>
-
                 <div className="bg-gradient-to-r from-[#F5F1EA] to-[#F5F1EA]/50 p-4 rounded-lg border border-[#E5DDD0]">
                   <label className="block mb-1 text-sm text-[#2B2318] flex items-center gap-2">
                     <Clock className="w-3 h-3 text-[#B8985F]" />
@@ -313,7 +994,6 @@ export function CreateTourCode() {
 
             {/* Страна и отель */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Страна */}
               <div>
                 <label className="block mb-2 text-[#2B2318] flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-[#B8985F]" />
@@ -330,8 +1010,6 @@ export function CreateTourCode() {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Отель */}
               <div>
                 <label className="block mb-2 text-[#2B2318] flex items-center gap-2">
                   <Building className="w-4 h-4 text-[#B8985F]" />
@@ -342,7 +1020,7 @@ export function CreateTourCode() {
                     <SelectValue placeholder="Выберите отель" />
                   </SelectTrigger>
                   <SelectContent>
-                    {hotels.map((hotel) => (
+                    {hotelOptions.map((hotel) => (
                       <SelectItem key={hotel} value={hotel}>
                         {hotel}
                       </SelectItem>
@@ -352,14 +1030,13 @@ export function CreateTourCode() {
               </div>
             </div>
 
-            {/* Разделитель */}
+            {/* Манифест */}
             <div className="border-t border-[#E5DDD0] pt-6">
               <h3 className="mb-4 text-[#2B2318] flex items-center gap-2">
                 <Upload className="w-5 h-5 text-[#B8985F]" />
                 Парсинг манифеста
               </h3>
 
-              {/* Загрузка манифеста */}
               <div className="mb-4">
                 <label className="block mb-2 text-sm text-[#2B2318]">
                   Данные манифеста
@@ -384,8 +1061,10 @@ export function CreateTourCode() {
                       <p className="text-xs text-[#6B5435] mt-1">Поддерживаются форматы: .xlsx, .xls, .csv</p>
                     </>
                   )}
-                  {isUploadingManifest && (
-                    <p className="text-sm text-[#B8985F] mt-2">Загрузка...</p>
+                  {(isUploadingManifest || isComparing) && (
+                    <p className="text-sm text-[#B8985F] mt-2">
+                      {isComparing ? "Сравнение с таблицей..." : "Загрузка..."}
+                    </p>
                   )}
                 </div>
                 {manifestError && (
@@ -393,69 +1072,151 @@ export function CreateTourCode() {
                 )}
               </div>
 
-              {/* Таблица паломников из манифеста */}
-              <div className="mb-6">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-[#2B2318]">
-                    Список паломников ({parsedPilgrims.length})
-                  </h4>
+              {/* Статистика */}
+              {hasResults && (
+                <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="bg-green-50 p-3 rounded-lg border border-green-200 text-center">
+                    <p className="text-2xl font-bold text-green-700">{allMatched.length}</p>
+                    <p className="text-xs text-green-600">Совпадений</p>
+                  </div>
+                  <div className="bg-orange-50 p-3 rounded-lg border border-orange-200 text-center">
+                    <p className="text-2xl font-bold text-orange-700">{allInSheetNotManifest.length}</p>
+                    <p className="text-xs text-orange-600">В таблице, нет в манифесте</p>
+                  </div>
+                  <div className="bg-red-50 p-3 rounded-lg border border-red-200 text-center">
+                    <p className="text-2xl font-bold text-red-700">{allInManifestNotSheet.length}</p>
+                    <p className="text-xs text-red-600">В манифесте, нет в таблице</p>
+                  </div>
                 </div>
+              )}
 
-                <div className="border border-[#E5DDD0] rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-[#F5F1EA] hover:bg-[#F5F1EA]">
-                        <TableHead className="text-[#2B2318]">№</TableHead>
-                        <TableHead className="text-[#2B2318]">Фамилия</TableHead>
-                        <TableHead className="text-[#2B2318]">Имя</TableHead>
-                        <TableHead className="text-[#2B2318]">Номер паспорта</TableHead>
-                        <TableHead className="text-[#2B2318]">Менеджер</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {parsedPilgrims.map((pilgrim, index) => (
-                        <TableRow key={pilgrim.id} className="hover:bg-[#F5F1EA]/50">
-                          <TableCell className="text-[#6B5435]">{index + 1}</TableCell>
-                          <TableCell className="text-[#2B2318]">{pilgrim.lastName}</TableCell>
-                          <TableCell className="text-[#2B2318]">{pilgrim.firstName}</TableCell>
-                          <TableCell className="text-[#6B5435]">{pilgrim.passportNumber}</TableCell>
-                          <TableCell className="text-[#6B5435]">{pilgrim.manager}</TableCell>
+              {/* Таблица 1: Совпадения */}
+              {allMatched.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="mb-2 text-[#2B2318] font-medium">
+                    Совпадения ({allMatched.length})
+                  </h4>
+                  <div className="border border-[#E5DDD0] rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-green-50 hover:bg-green-50">
+                          <TableHead className="text-[#2B2318] w-12">№</TableHead>
+                          <TableHead className="text-[#2B2318]">Фамилия</TableHead>
+                          <TableHead className="text-[#2B2318]">Имя</TableHead>
+                          <TableHead className="text-[#2B2318]">Паспорт</TableHead>
+                          <TableHead className="text-[#2B2318]">Пакет</TableHead>
+                          <TableHead className="text-[#2B2318]">Тур</TableHead>
+                          <TableHead className="text-[#2B2318]">Тур код</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {allMatched.map((p, i) => (
+                          <TableRow key={`m-${p.document}-${i}`} className="hover:bg-green-50/30">
+                            <TableCell className="text-[#6B5435]">{i + 1}</TableCell>
+                            <TableCell className="text-[#2B2318]">{p.surname}</TableCell>
+                            <TableCell className="text-[#2B2318]">{p.name}</TableCell>
+                            <TableCell className="text-[#6B5435]">{p.document || "-"}</TableCell>
+                            <TableCell className="text-[#6B5435]">{p.package_name}</TableCell>
+                            <TableCell className="text-[#6B5435]">{p.tour_name}</TableCell>
+                            <TableCell className="text-[#6B5435]">{p.tour_code || "-"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Паломники из таблицы, которых нет в манифесте */}
-              {inSheetNotInManifest.length > 0 && (
-                <div className="bg-gradient-to-r from-[#FFF4E6] to-[#FFE5CC]/50 p-4 rounded-lg border border-[#FFD4A3]">
-                  <h4 className="mb-3 text-[#2B2318] flex items-center gap-2">
-                    Есть в таблице, но отсутствуют в манифесте ({inSheetNotInManifest.length})
+              {/* Таблица 2: В таблице, нет в манифесте */}
+              {allInSheetNotManifest.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="mb-2 text-[#2B2318] font-medium">
+                    В таблице, нет в манифесте ({allInSheetNotManifest.length})
                   </h4>
-
-                  <div className="border border-[#FFD4A3] rounded-lg overflow-hidden bg-white">
+                  <div className="border border-[#FFD4A3] rounded-lg overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-[#FFF4E6] hover:bg-[#FFF4E6]">
-                          <TableHead className="text-[#2B2318]">№</TableHead>
+                          <TableHead className="text-[#2B2318] w-12">№</TableHead>
                           <TableHead className="text-[#2B2318]">Фамилия</TableHead>
                           <TableHead className="text-[#2B2318]">Имя</TableHead>
-                          <TableHead className="text-[#2B2318]">Номер паспорта</TableHead>
-                          <TableHead className="text-[#2B2318]">Менеджер</TableHead>
+                          <TableHead className="text-[#2B2318]">Паспорт</TableHead>
+                          <TableHead className="text-[#2B2318]">Пакет</TableHead>
+                          <TableHead className="text-[#2B2318]">Тур код</TableHead>
+                          <TableHead className="text-[#2B2318]">Добавить</TableHead>
                         </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {inSheetNotInManifest.map((pilgrim, index) => (
-                        <TableRow key={`${pilgrim.document}-${index}`} className="hover:bg-[#FFF4E6]/30">
-                          <TableCell className="text-[#6B5435]">{index + 1}</TableCell>
-                          <TableCell className="text-[#2B2318]">{pilgrim.surname}</TableCell>
-                          <TableCell className="text-[#2B2318]">{pilgrim.name}</TableCell>
-                          <TableCell className="text-[#6B5435]">{pilgrim.document}</TableCell>
-                          <TableCell className="text-[#6B5435]">{pilgrim.manager}</TableCell>
+                      </TableHeader>
+                      <TableBody>
+                        {allInSheetNotManifest.map((p, i) => (
+                          <TableRow key={`s-${p.surname}-${p.name}-${p.document}-${i}`} className="hover:bg-[#FFF4E6]/30">
+                            <TableCell className="text-[#6B5435]">{i + 1}</TableCell>
+                            <TableCell>
+                              {renderEditableCell("sheet", i, "surname", p.surname, "text-[#2B2318]")}
+                            </TableCell>
+                            <TableCell>
+                              {renderEditableCell("sheet", i, "name", p.name, "text-[#2B2318]")}
+                            </TableCell>
+                            <TableCell>
+                              {renderEditableCell("sheet", i, "document", p.document || "", "text-[#6B5435]")}
+                            </TableCell>
+                            <TableCell className="text-[#6B5435]">{p.package_name}</TableCell>
+                            <TableCell className="text-[#6B5435]">-</TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                                onClick={() => handleAddToMatchedFromSheet(i)}
+                              >
+                                Добавить
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Таблица 3: В манифесте, нет в таблице */}
+              {allInManifestNotSheet.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="mb-2 text-[#2B2318] font-medium">
+                    В манифесте, нет в таблице ({allInManifestNotSheet.length})
+                  </h4>
+                  <div className="border border-red-200 rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-red-50 hover:bg-red-50">
+                          <TableHead className="text-[#2B2318] w-12">№</TableHead>
+                          <TableHead className="text-[#2B2318]">Фамилия</TableHead>
+                          <TableHead className="text-[#2B2318]">Имя</TableHead>
+                          <TableHead className="text-[#2B2318]">Паспорт</TableHead>
+                          <TableHead className="text-[#2B2318]">Пакет</TableHead>
+                          <TableHead className="text-[#2B2318]">Тур</TableHead>
+                          <TableHead className="text-[#2B2318]">Тур код</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
+                      </TableHeader>
+                      <TableBody>
+                        {allInManifestNotSheet.map((p, i) => (
+                          <TableRow key={`n-${p.document}-${i}`} className="hover:bg-red-50/30">
+                            <TableCell className="text-[#6B5435]">{i + 1}</TableCell>
+                            <TableCell>
+                              {renderEditableCell("manifest", i, "surname", p.surname, "text-[#2B2318]")}
+                            </TableCell>
+                            <TableCell>
+                              {renderEditableCell("manifest", i, "name", p.name, "text-[#2B2318]")}
+                            </TableCell>
+                            <TableCell>
+                              {renderEditableCell("manifest", i, "document", p.document || "", "text-[#6B5435]")}
+                            </TableCell>
+                            <TableCell className="text-[#6B5435]">{p.package_name || "-"}</TableCell>
+                            <TableCell className="text-[#6B5435]">{p.tour_name || "-"}</TableCell>
+                            <TableCell className="text-[#6B5435]">{p.tour_code || "-"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
                     </Table>
                   </div>
                 </div>
@@ -465,11 +1226,12 @@ export function CreateTourCode() {
             {/* Кнопки */}
             <div className="flex gap-4 pt-4 border-t border-[#E5DDD0]">
               <Button
-                disabled={!selectedDateShort || !selectedFlight || !selectedHotel}
+                onClick={handleCreateTourCode}
+                disabled={!selectedDateShort || !selectedFlight || !selectedHotel || isQueueingDispatch}
                 className="bg-gradient-to-r from-[#B8985F] to-[#A88952] hover:from-[#A88952] hover:to-[#8B6F47] text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Создать тур код
+                {isQueueingDispatch ? "Постановка в очередь..." : "Создать тур код"}
               </Button>
               <Button
                 variant="outline"
@@ -478,6 +1240,9 @@ export function CreateTourCode() {
                 Отмена
               </Button>
             </div>
+            {dispatchInfo && (
+              <p className="text-sm text-green-700">{dispatchInfo}</p>
+            )}
           </div>
         </div>
       </div>

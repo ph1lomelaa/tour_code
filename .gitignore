@@ -62,3 +62,10 @@ temp/
 
 # Vite
 .vite/
+backend/venv/
+frontend/venv/
+backend/.env
+frontend/.env
+backend/credentials/credentials.json
+__pycache__/
+*.pyc

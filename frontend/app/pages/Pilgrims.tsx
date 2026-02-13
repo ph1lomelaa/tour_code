@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
 import {
   Table,
   TableBody,
@@ -9,86 +10,77 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { Search } from "lucide-react";
+import { getPilgrims, PilgrimListItem } from "../../src/lib/api/pilgrims";
 
-// Mock data для паломников
-const allPilgrims = [
-  {
-    id: 1,
-    lastName: "Иванов",
-    firstName: "Иван",
-    middleName: "Иванович",
-    passportNumber: "1234 567890",
-    tourCode: "HKM-2026-001",
-    tourName: "Авиа",
-    tourDate: "2026-03-15",
-  },
-  {
-    id: 2,
-    lastName: "Петров",
-    firstName: "Петр",
-    middleName: "Петрович",
-    passportNumber: "2345 678901",
-    tourCode: "HKM-2026-002",
-    tourName: "Авиа Премиум",
-    tourDate: "2026-03-20",
-  },
-  {
-    id: 3,
-    lastName: "Сидорова",
-    firstName: "Мария",
-    middleName: "Александровна",
-    passportNumber: "3456 789012",
-    tourCode: "HKM-2026-003",
-    tourName: "Автобус",
-    tourDate: "2026-04-01",
-  },
-  {
-    id: 4,
-    lastName: "Смирнов",
-    firstName: "Алексей",
-    middleName: "Викторович",
-    passportNumber: "4567 890123",
-    tourCode: "HKM-2026-004",
-    tourName: "Авиа",
-    tourDate: "2026-04-10",
-  },
-  {
-    id: 5,
-    lastName: "Кузнецова",
-    firstName: "Елена",
-    middleName: "Сергеевна",
-    passportNumber: "5678 901234",
-    tourCode: "HKM-2026-005",
-    tourName: "Авиа Премиум",
-    tourDate: "2026-03-20",
-  },
-  {
-    id: 6,
-    lastName: "Попов",
-    firstName: "Дмитрий",
-    middleName: "Андреевич",
-    passportNumber: "6789 012345",
-    tourCode: "HKM-2026-006",
-    tourName: "Автобус",
-    tourDate: "2026-04-01",
-  },
-];
+const PAGE_SIZE = 20;
 
 export function Pilgrims() {
   const [searchLastName, setSearchLastName] = useState("");
-  const [searchFirstName, setSearchFirstName] = useState("");
+  const [searchDocument, setSearchDocument] = useState("");
 
-  // Фильтрация паломников по фамилии и имени
-  const filteredPilgrims = allPilgrims.filter((pilgrim) => {
-    const lastNameMatch = pilgrim.lastName
-      .toLowerCase()
-      .includes(searchLastName.toLowerCase());
-    const firstNameMatch = pilgrim.firstName
-      .toLowerCase()
-      .includes(searchFirstName.toLowerCase());
-    
-    return lastNameMatch && firstNameMatch;
-  });
+  const [surnameFilter, setSurnameFilter] = useState("");
+  const [documentFilter, setDocumentFilter] = useState("");
+
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [pilgrims, setPilgrims] = useState<PilgrimListItem[]>([]);
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setSurnameFilter(searchLastName.trim());
+      setDocumentFilter(searchDocument.trim());
+      setPage(1);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchLastName, searchDocument]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchPilgrims = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await getPilgrims({
+          surname: surnameFilter || undefined,
+          document: documentFilter || undefined,
+          page,
+          page_size: PAGE_SIZE,
+        });
+
+        if (cancelled) return;
+        setPilgrims(response.items);
+        setTotal(response.total);
+        setTotalPages(response.total_pages);
+      } catch (e) {
+        if (cancelled) return;
+        console.error("Error fetching pilgrims:", e);
+        setPilgrims([]);
+        setTotal(0);
+        setTotalPages(0);
+        setError("Не удалось загрузить паломников");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    fetchPilgrims();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [surnameFilter, documentFilter, page]);
+
+  const hasFilters = useMemo(
+    () => Boolean(searchLastName || searchDocument),
+    [searchLastName, searchDocument]
+  );
 
   return (
     <div className="p-12">
@@ -97,7 +89,7 @@ export function Pilgrims() {
         <div className="mb-8">
           <h1 className="text-3xl mb-2 text-[#2B2318]">Паломники</h1>
           <p className="text-[#6B5435]">
-            Поиск паломников по фамилии и имени
+            Поиск паломников по фамилии и номеру паспорта
           </p>
         </div>
 
@@ -121,18 +113,18 @@ export function Pilgrims() {
               </div>
             </div>
 
-            {/* Поиск по имени */}
+            {/* Поиск по номеру документа */}
             <div>
               <label className="block text-sm mb-2 text-[#2B2318]">
-                Имя
+                Номер паспорта
               </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B6F47]" />
                 <Input
                   type="text"
-                  value={searchFirstName}
-                  onChange={(e) => setSearchFirstName(e.target.value)}
-                  placeholder="Введите имя"
+                  value={searchDocument}
+                  onChange={(e) => setSearchDocument(e.target.value)}
+                  placeholder="Введите номер паспорта"
                   className="pl-10 bg-[#F5F1EA] border-[#E5DDD0] focus:border-[#B8985F]"
                 />
               </div>
@@ -141,7 +133,7 @@ export function Pilgrims() {
 
           {/* Results count */}
           <div className="mt-4 text-sm text-[#6B5435]">
-            Найдено паломников: {filteredPilgrims.length}
+            Найдено паломников: {total}
           </div>
         </div>
 
@@ -149,7 +141,13 @@ export function Pilgrims() {
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-[#E5DDD0]">
           <h2 className="mb-6 text-[#2B2318]">Список паломников</h2>
 
-          {filteredPilgrims.length > 0 ? (
+          {error ? (
+            <div className="text-red-600">{error}</div>
+          ) : isLoading ? (
+            <div className="flex items-center justify-center h-40 text-[#8B6F47]">
+              <p>Загрузка...</p>
+            </div>
+          ) : pilgrims.length > 0 ? (
             <div className="border border-[#E5DDD0] rounded-lg overflow-hidden">
               <Table>
                 <TableHeader>
@@ -157,48 +155,50 @@ export function Pilgrims() {
                     <TableHead className="text-[#2B2318]">№</TableHead>
                     <TableHead className="text-[#2B2318]">Фамилия</TableHead>
                     <TableHead className="text-[#2B2318]">Имя</TableHead>
-                    <TableHead className="text-[#2B2318]">Отчество</TableHead>
                     <TableHead className="text-[#2B2318]">
                       Номер паспорта
                     </TableHead>
+                    <TableHead className="text-[#2B2318]">Тур код</TableHead>
+                    <TableHead className="text-[#2B2318]">Пакет</TableHead>
                     <TableHead className="text-[#2B2318]">Тур</TableHead>
-                    <TableHead className="text-[#2B2318]">Дата</TableHead>
-                    <TableHead className="text-[#2B2318]">
-                      Номер тур кода
-                    </TableHead>
+                    <TableHead className="text-[#2B2318]">Маршрут</TableHead>
+                    <TableHead className="text-[#2B2318]">Период</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPilgrims.map((pilgrim, index) => (
+                  {pilgrims.map((pilgrim, index) => (
                     <TableRow
                       key={pilgrim.id}
                       className="hover:bg-[#F5F1EA]/50"
                     >
                       <TableCell className="text-[#6B5435]">
-                        {index + 1}
+                        {(page - 1) * PAGE_SIZE + index + 1}
                       </TableCell>
                       <TableCell className="text-[#2B2318]">
-                        {pilgrim.lastName}
+                        {pilgrim.surname}
                       </TableCell>
                       <TableCell className="text-[#2B2318]">
-                        {pilgrim.firstName}
+                        {pilgrim.name}
                       </TableCell>
                       <TableCell className="text-[#6B5435]">
-                        {pilgrim.middleName}
+                        {pilgrim.document || "-"}
                       </TableCell>
                       <TableCell className="text-[#6B5435]">
-                        {pilgrim.passportNumber}
+                        {pilgrim.tour_code || "-"}
                       </TableCell>
                       <TableCell className="text-[#6B5435]">
-                        {pilgrim.tourName}
+                        {pilgrim.package_name || "-"}
                       </TableCell>
                       <TableCell className="text-[#6B5435]">
-                        {pilgrim.tourDate}
+                        {pilgrim.tour_name || "-"}
                       </TableCell>
-                      <TableCell>
-                        <span className="inline-flex px-3 py-1 rounded-full bg-gradient-to-r from-[#B8985F]/10 to-[#A88952]/10 text-[#8B6F47] text-sm">
-                          {pilgrim.tourCode}
-                        </span>
+                      <TableCell className="text-[#6B5435]">
+                        {pilgrim.tour_route || "-"}
+                      </TableCell>
+                      <TableCell className="text-[#6B5435]">
+                        {pilgrim.date_start && pilgrim.date_end
+                          ? `${pilgrim.date_start} - ${pilgrim.date_end}`
+                          : "-"}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -208,10 +208,36 @@ export function Pilgrims() {
           ) : (
             <div className="flex items-center justify-center h-64 text-[#8B6F47]">
               <p>
-                {searchLastName || searchFirstName
+                {hasFilters
                   ? "Паломники не найдены. Попробуйте изменить критерии поиска"
-                  : "Введите фамилию или имя для поиска паломников"}
+                  : "Паломники пока отсутствуют"}
               </p>
+            </div>
+          )}
+
+          {!isLoading && !error && totalPages > 0 && (
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-sm text-[#6B5435]">
+                Страница {page} из {totalPages}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                  onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={page <= 1}
+                >
+                  Назад
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                  onClick={() => setPage((prev) => prev + 1)}
+                  disabled={page >= totalPages}
+                >
+                  Вперед
+                </Button>
+              </div>
             </div>
           )}
         </div>

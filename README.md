@@ -1,76 +1,81 @@
-# Hickmet Premium - Система управления тур-кодами
-
-Веб-приложение для управления паломническими турами (Umrah/Hajj).
 
 ## Структура проекта
 
-```
+```text
 Tour_code/
-├── backend/                   # Серверная часть (FastAPI + Python)
-│   ├── app/                   # Основной код приложения
-│   │   ├── api/v1/            # API эндпоинты (tours, manifest)
-│   │   ├── core/              # Конфигурация и подключение к БД
-│   │   ├── services/          # Бизнес-логика (Google Sheets, парсеры)
-│   │   ├── models/            # Модели данных (SQLAlchemy)
-│   │   ├── schemas/           # Pydantic-схемы валидации
-│   │   ├── crud/              # CRUD-операции с БД
-│   │   └── workers/           # Фоновые задачи
-│   ├── credentials/           # Google API ключи (не в git)
-│   ├── database/migrations/   # Миграции БД
-│   ├── tests/                 # Тесты
-│   ├── uploads/               # Загруженные манифесты
-│   └── requirements.txt
-│
-├── frontend/                  # Клиентская часть (React + Vite + TS)
-│   ├── app/
-│   │   ├── pages/             # Страницы (CreateTourCode и др.)
-│   │   └── components/
-│   │       ├── ui/            # UI-компоненты (Button, Input, Table)
-│   │       └── figma/         # Компоненты из Figma-дизайна
-│   ├── src/lib/api/           # API-клиент (запросы к бэкенду)
-│   ├── styles/                # CSS-стили
-│   └── package.json
-│
-├── logic/                     # Скрипты и утилиты вне API
-│   └── core/
-│       ├── google_sheets/     # Работа с Google Sheets напрямую
-│       ├── parsers/           # Парсеры данных
-│       ├── models/            # Модели и скрипты
-│       └── utils/             # Утилиты
-│
-├── test sheets/               # Тестовые Excel-файлы
-└── docker-compose.dev.yml     # Docker для разработки
+├── backend/                 # FastAPI + Celery
+├── frontend/                # React + Vite
+├── db/                      # SQLAlchemy модели + schema.sql
+├── docker-compose.dev.yml   # PostgreSQL + Redis + pgAdmin + Redis Commander
+└── requirements.txt         # Python зависимости (вынесены в корень)
 ```
 
-## Быстрый старт
+### 3. Установить Python зависимости
 
-### 1. Backend
+Из корня проекта:
 
 ```bash
-cd backend
-source venv/bin/activate
+python3 -m venv backend/venv
+source backend/venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
 ```
 
-Backend: http://localhost:8000
-
-### 2. Frontend
+### 4. Установить frontend зависимости
 
 ```bash
 cd frontend
 npm install
-npm run dev
+cd ..
 ```
 
-Frontend: http://localhost:5173
+### 5. Запустить backend API
 
-### 3. Google Sheets
+Терминал 1:
 
-Для работы с Google Sheets нужно положить файл `credentials.json` в папку `backend/credentials/`.
+```bash
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-## Технологии
+API будет доступен на:
 
-**Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Radix UI
+- `http://localhost:8000`
+- Swagger: `http://localhost:8000/docs`
 
-**Backend:** Python 3.11+, FastAPI, Google Sheets API, SQLAlchemy, PostgreSQL
+### 6. Запустить Celery worker
+
+Терминал 2:
+
+```bash
+cd backend
+source venv/bin/activate
+celery -A app.worker.celery_app worker -l info -Q tour_dispatch
+```
+
+### 7. Запустить frontend
+
+Терминал 3:
+
+```bash
+cd frontend
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+
+Frontend:
+
+- `http://localhost:5173`
+
+## Проверка после запуска
+
+1. Открой `http://localhost:8000/health` и проверь статус.
+2. Открой `http://localhost:5173`.
+3. На странице создания тура загрузи манифест и сравни с таблицей.
+4. Нажми `Создать тур код` и проверь, что задача появляется в очереди.
+
+## Google Sheets credentials
+
+Файл сервисного аккаунта ожидается по пути:
+
+`backend/credentials/credentials.json`
