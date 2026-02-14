@@ -57,7 +57,11 @@ class Settings(BaseSettings):
 
     # Dispatch queue / broker
     DISPATCH_DRY_RUN: bool = False
-    DISPATCH_TARGET_URL: str = ""  # legacy fallback for save URL
+    # test | prod | auto
+    DISPATCH_PLATFORM_MODE: str = "auto"
+    # JSON endpoint (test platform: http://test.fondkamkor.kz)
+    DISPATCH_TARGET_URL: str = ""
+    # Legacy auth/save URLs (kept for backward compatibility in env only)
     DISPATCH_AUTH_URL: str = ""
     DISPATCH_SAVE_URL: str = ""
     DISPATCH_REQUEST_TIMEOUT_SECONDS: int = 30
@@ -80,8 +84,9 @@ class Settings(BaseSettings):
     DISPATCH_DEFAULT_AIRLINE: str = "KC"
     DISPATCH_DEFAULT_DOC_PRODUCTION: str = "Ministry Of Internal Affairs"
     DISPATCH_DEFAULT_DOC_TYPE: str = "паспорт"
+    DISPATCH_DEFAULT_DOC_DATE: str = "02.11.2016"
     DISPATCH_DEFAULT_RESIDENT: str = "резидент"
-    DISPATCH_DEFAULT_BIRTH_DATE: str = "1970-01-01"
+    DISPATCH_DEFAULT_BIRTH_DATE: str = "01.01.1970"
     DISPATCH_CLIENT_NAME_TEMPLATE: str = "Client_$CID"
 
     # Form fields for partner queries/163/save

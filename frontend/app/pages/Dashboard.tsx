@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   Package,
   Users,
@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ArrowRight,
   Send,
+  Search,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -36,16 +37,8 @@ function StatusDot({ status }: { status: string | null }) {
   );
 }
 
-function formatDate(isoString: string): string {
-  try {
-    const d = new Date(isoString);
-    return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "short" });
-  } catch {
-    return "";
-  }
-}
-
 export function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStatsResponse>({
     total_tours: 0,
     total_pilgrims: 0,
@@ -56,6 +49,7 @@ export function Dashboard() {
   const [recentTours, setRecentTours] = useState<RecentTourItem[]>([]);
   const [recentJobs, setRecentJobs] = useState<RecentJobItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +74,15 @@ export function Dashboard() {
     return () => { cancelled = true; };
   }, []);
 
+  const handleSearch = (e: React.SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/pilgrims?search=${encodeURIComponent(searchQuery.trim())}`);
+    } else {
+      navigate("/pilgrims");
+    }
+  };
+
   return (
     <div className="relative min-h-full bg-[#E8E0D4]">
       {/* ── Decorative background ── */}
@@ -93,133 +96,155 @@ export function Dashboard() {
         <div className="max-w-[1100px] mx-auto">
 
           {/* ── Header ── */}
-          <header className="mb-12">
-            <p className="text-[10px] font-semibold tracking-[0.4em] uppercase text-[#C4A265] mb-4">
-              Hickmet Premium
-            </p>
-            <h1 className="text-3xl md:text-[40px] leading-tight font-light text-[#3D2E1C] mb-3" style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}>
-              Ассаляму алейкум
+          <header className="mb-8">
+            <h1 className="text-3xl md:text-[38px] leading-tight text-[#8B6F47] mb-2" dir="rtl">
+              السلام عليكم ورحمة الله وبركاته
             </h1>
-            <p className="text-[15px] text-[#8B7A63] max-w-md tracking-wide">
-              Управление тур кодами для паломников
+            <p className="text-[14px] text-[#6B5435]">
+              Система управления тур кодами Hickmet Premium
             </p>
           </header>
 
-          {/* ── Quick actions ── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 mb-10">
-            <ActionCard
-              to="/create"
-              icon={<Plus className="w-5 h-5" />}
-              title="Создать тур код"
-              subtitle="Создать новый тур код для паломников"
-            />
-            <ActionCard
-              to="/packages"
-              icon={<Package className="w-5 h-5" />}
-              title="Пакеты с тур кодом"
-              subtitle="Просмотр и управление пакетами"
-            />
-            <ActionCard
-              to="/pilgrims"
-              icon={<Users className="w-5 h-5" />}
-              title="Паломники"
-              subtitle="Управление списком паломников"
-            />
-          </div>
+          {/* ── Search bar ── */}
+          <form onSubmit={handleSearch} className="mb-10">
+            <div className="
+              relative rounded-2xl
+              backdrop-blur-2xl bg-white/[0.55]
+              border border-white/70
+              shadow-[0_4px_20px_rgba(139,111,71,0.08)]
+              overflow-hidden
+            ">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#B8985F]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Поиск паломника по имени, паспорту или телефону..."
+                className="w-full bg-transparent pl-14 pr-5 py-4 text-[14px] text-[#2B2318] placeholder-[#B8985F]/60 outline-none"
+              />
+            </div>
+          </form>
 
           {/* ── Stats ── */}
-          <div className="grid grid-cols-3 gap-3 md:gap-5 mb-12">
+          <div className="grid grid-cols-3 gap-3 md:gap-5 mb-10">
             <GlassStat
               value={stats.total_tours}
               label="Всего туров"
-              icon={<Package className="w-4 h-4" />}
+              hint="Пока нет активных туров"
+              icon={<Plane className="w-5 h-5" />}
               isLoading={isLoading}
             />
             <GlassStat
               value={stats.total_pilgrims}
               label="Активных паломников"
-              icon={<Users className="w-4 h-4" />}
+              hint="Ожидание регистрации"
+              icon={<Users className="w-5 h-5" />}
               isLoading={isLoading}
             />
             <GlassStat
               value={stats.sent_jobs}
               label="Успешных отправок"
-              icon={<Send className="w-4 h-4" />}
+              hint="Начните с первого тура"
+              icon={<CheckCircle2 className="w-5 h-5" />}
               isLoading={isLoading}
             />
           </div>
 
-          {/* ── Activity ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {/* Recent Tours */}
-            <GlassPanel>
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-[13px] tracking-[0.15em] uppercase text-[#8B6F47]">
-                  Последние туры
-                </h3>
-                <Link
-                  to="/packages"
-                  className="text-[12px] text-[#B8985F] hover:text-[#8B6F47] flex items-center gap-1 transition-colors"
-                >
-                  Все туры <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
+          {/* ── Quick actions ── */}
+          <div className="mb-10">
+            <h2 className="text-[13px] tracking-[0.15em] uppercase text-[#8B6F47] mb-5">
+              Быстрые действия
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
+              <ActionCard
+                to="/create"
+                icon={<Plus className="w-6 h-6" />}
+                title="Создать тур код"
+                subtitle="Создать новый тур код для паломников на Умру или Хадж"
+              />
+              <ActionCard
+                to="/packages"
+                icon={<Package className="w-6 h-6" />}
+                title="Пакеты с тур кодом"
+                subtitle="Просмотр и управление пакетами"
+              />
+              <ActionCard
+                to="/pilgrims"
+                icon={<Users className="w-6 h-6" />}
+                title="Паломники"
+                subtitle="Управление списком паломников"
+              />
+            </div>
+          </div>
 
+          {/* ── Recent Tours Table ── */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-[13px] tracking-[0.15em] uppercase text-[#8B6F47]">
+                Ближайшие туры
+              </h2>
+              <Link
+                to="/packages"
+                className="text-[12px] text-[#B8985F] hover:text-[#8B6F47] flex items-center gap-1 transition-colors"
+              >
+                Все туры <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <GlassPanel>
               {isLoading ? (
-                <SkeletonList />
+                <SkeletonTable />
               ) : recentTours.length === 0 ? (
                 <EmptyState
                   icon={<Plane className="w-8 h-8" />}
-                  text="Туров пока нет"
+                  text="Пока нет запланированных туров"
                   linkTo="/create"
-                  linkLabel="Создать первый"
+                  linkLabel="Создать первый тур"
                 />
               ) : (
-                <ul className="space-y-1">
-                  {recentTours.map((tour) => (
-                    <li key={tour.id}>
-                      <Link
-                        to={`/create?tourId=${tour.id}`}
-                        className="group flex items-center gap-3.5 px-3.5 py-3 -mx-1 rounded-xl hover:bg-white/50 transition-all duration-200"
-                      >
-                        <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-[#C4A265]/20 to-[#B8985F]/5 flex items-center justify-center flex-shrink-0">
-                          <Plane className="w-4 h-4 text-[#B8985F]" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13px] text-[#2B2318] truncate leading-tight">
-                            {tour.sheet_name || tour.route || "Тур"}
-                          </p>
-                          <p className="text-[11px] text-[#A99B88] mt-0.5">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[#E5DDD0]/60">
+                        <th className="text-left text-[11px] tracking-[0.1em] uppercase text-[#9C8B75] pb-3 font-medium">Направление</th>
+                        <th className="text-left text-[11px] tracking-[0.1em] uppercase text-[#9C8B75] pb-3 font-medium">Даты</th>
+                        <th className="text-left text-[11px] tracking-[0.1em] uppercase text-[#9C8B75] pb-3 font-medium">Паломники</th>
+                        <th className="text-left text-[11px] tracking-[0.1em] uppercase text-[#9C8B75] pb-3 font-medium">Статус</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentTours.map((tour) => (
+                        <tr key={tour.id} className="border-b border-[#E5DDD0]/30 last:border-0">
+                          <td className="py-3.5">
+                            <Link to={`/create?tourId=${tour.id}`} className="text-[13px] text-[#2B2318] hover:text-[#B8985F] transition-colors">
+                              {tour.sheet_name || tour.route || "Тур"}
+                            </Link>
+                          </td>
+                          <td className="py-3.5 text-[13px] text-[#6B5435]">
                             {tour.date_start} — {tour.date_end}
-                            <span className="mx-1.5 opacity-40">|</span>
-                            {tour.pilgrims_count} чел.
-                          </p>
-                        </div>
-                        <StatusDot status={tour.dispatch_status} />
-                        <ArrowRight className="w-3.5 h-3.5 text-[#D4C5B0] opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                          </td>
+                          <td className="py-3.5 text-[13px] text-[#6B5435]">
+                            {tour.pilgrims_count}
+                          </td>
+                          <td className="py-3.5">
+                            <StatusDot status={tour.dispatch_status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </GlassPanel>
+          </div>
 
-            {/* Recent Jobs */}
-            <GlassPanel>
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-[13px] tracking-[0.15em] uppercase text-[#8B6F47]">
-                  Отправки
-                </h3>
-              </div>
-
-              {isLoading ? (
-                <SkeletonList />
-              ) : recentJobs.length === 0 ? (
-                <EmptyState
-                  icon={<CheckCircle2 className="w-8 h-8" />}
-                  text="Отправок пока нет"
-                />
-              ) : (
+          {/* ── Recent Jobs ── */}
+          {recentJobs.length > 0 && !isLoading && (
+            <div>
+              <h2 className="text-[13px] tracking-[0.15em] uppercase text-[#8B6F47] mb-5">
+                Последние отправки
+              </h2>
+              <GlassPanel>
                 <ul className="space-y-1">
                   {recentJobs.map((job) => (
                     <li
@@ -246,7 +271,7 @@ export function Dashboard() {
                           {job.tour_sheet_name || `#${job.id.slice(0, 8)}`}
                         </p>
                         <p className="text-[11px] text-[#A99B88] mt-0.5">
-                          {formatDate(job.created_at)}
+                          {new Date(job.created_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}
                           {job.status === "failed" && job.error_message && (
                             <span className="text-red-300 ml-1">
                               — {job.error_message.slice(0, 35)}
@@ -259,9 +284,9 @@ export function Dashboard() {
                     </li>
                   ))}
                 </ul>
-              )}
-            </GlassPanel>
-          </div>
+              </GlassPanel>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -275,36 +300,39 @@ export function Dashboard() {
 function GlassStat({
   value,
   label,
+  hint,
   icon,
   isLoading,
 }: {
   value: number;
   label: string;
+  hint: string;
   icon: React.ReactNode;
   isLoading: boolean;
 }) {
   return (
     <div className="
-      relative overflow-hidden rounded-xl
+      relative overflow-hidden rounded-2xl
       backdrop-blur-2xl bg-white/[0.55]
       border border-white/70
       shadow-[0_4px_20px_rgba(139,111,71,0.08),0_1px_3px_rgba(139,111,71,0.04)]
-      px-4 py-4 md:px-5 md:py-4
+      px-5 py-5 md:px-6 md:py-5
       transition-all duration-300 hover:bg-white/70 hover:shadow-[0_6px_24px_rgba(139,111,71,0.12)]
     ">
-      <div className="relative flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#C4A265]/20 to-[#B8985F]/10 flex items-center justify-center text-[#B8985F]">
-          {icon}
-        </div>
+      <div className="flex items-start justify-between">
         <div>
-          <p className="text-[22px] md:text-[26px] leading-none text-[#2B2318] tracking-tight font-medium">
+          <p className="text-[11px] tracking-[0.1em] uppercase text-[#9C8B75] mb-2">{label}</p>
+          <p className="text-[28px] md:text-[32px] leading-none text-[#2B2318] tracking-tight font-medium">
             {isLoading ? (
-              <span className="inline-block w-8 h-6 rounded-md bg-[#E5DDD0]/40 animate-pulse" />
+              <span className="inline-block w-10 h-8 rounded-lg bg-[#E5DDD0]/40 animate-pulse" />
             ) : (
               value
             )}
           </p>
-          <p className="text-[10px] tracking-[0.08em] uppercase text-[#9C8B75] mt-1">{label}</p>
+          <p className="text-[12px] text-[#B8985F]/70 mt-2">{hint}</p>
+        </div>
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#C4A265]/15 to-[#B8985F]/5 flex items-center justify-center text-[#C4A265]">
+          {icon}
         </div>
       </div>
     </div>
@@ -330,7 +358,7 @@ function ActionCard({
         backdrop-blur-2xl bg-white/[0.55]
         border border-white/70
         shadow-[0_6px_24px_rgba(139,111,71,0.08),0_2px_6px_rgba(139,111,71,0.04)]
-        px-6 py-6 md:px-7 md:py-7
+        px-6 py-7 md:px-7 md:py-8
         transition-all duration-300
         hover:bg-white/70 hover:shadow-[0_10px_36px_rgba(139,111,71,0.14)] hover:-translate-y-px
       "
@@ -338,17 +366,14 @@ function ActionCard({
       {/* Hover copper glow */}
       <div className="absolute -bottom-10 -right-10 w-32 h-32 rounded-full bg-gradient-to-br from-[#C4A265] to-[#B8985F] opacity-0 group-hover:opacity-[0.08] blur-2xl transition-opacity duration-500" />
 
-      <div className="relative flex items-center gap-5">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#C4A265] to-[#A88952] text-white flex items-center justify-center flex-shrink-0 shadow-[0_4px_16px_rgba(139,111,71,0.25)] group-hover:shadow-[0_6px_24px_rgba(139,111,71,0.35)] group-hover:scale-[1.03] transition-all duration-300">
+      <div className="relative">
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#C4A265] to-[#A88952] text-white flex items-center justify-center mb-5 shadow-[0_4px_16px_rgba(139,111,71,0.25)] group-hover:shadow-[0_6px_24px_rgba(139,111,71,0.35)] group-hover:scale-[1.03] transition-all duration-300">
           {icon}
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-[15px] font-medium text-[#2B2318] leading-tight mb-1 group-hover:text-[#8B6F47] transition-colors">
-            {title}
-          </h3>
-          <p className="text-[13px] text-[#9C8B75] leading-snug">{subtitle}</p>
-        </div>
-        <ArrowRight className="w-4.5 h-4.5 text-[#C4A265]/50 group-hover:text-[#B8985F] group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+        <h3 className="text-[15px] font-medium text-[#2B2318] leading-tight mb-1.5 group-hover:text-[#8B6F47] transition-colors">
+          {title}
+        </h3>
+        <p className="text-[13px] text-[#9C8B75] leading-snug">{subtitle}</p>
       </div>
     </Link>
   );
@@ -368,16 +393,20 @@ function GlassPanel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SkeletonList() {
+function SkeletonTable() {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      <div className="flex gap-8 pb-3 border-b border-[#E5DDD0]/40">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="w-24 h-3 rounded bg-[#E5DDD0]/30 animate-pulse" />
+        ))}
+      </div>
       {[1, 2, 3].map((i) => (
-        <div key={i} className="flex items-center gap-3.5 px-3.5 py-3">
-          <div className="w-9 h-9 rounded-[10px] bg-[#E5DDD0]/30 animate-pulse" />
-          <div className="flex-1 space-y-1.5">
-            <div className="w-2/3 h-3 rounded bg-[#E5DDD0]/30 animate-pulse" />
-            <div className="w-1/3 h-2.5 rounded bg-[#E5DDD0]/20 animate-pulse" />
-          </div>
+        <div key={i} className="flex gap-8 py-1">
+          <div className="w-32 h-3 rounded bg-[#E5DDD0]/25 animate-pulse" />
+          <div className="w-28 h-3 rounded bg-[#E5DDD0]/20 animate-pulse" />
+          <div className="w-12 h-3 rounded bg-[#E5DDD0]/20 animate-pulse" />
+          <div className="w-20 h-3 rounded bg-[#E5DDD0]/20 animate-pulse" />
         </div>
       ))}
     </div>

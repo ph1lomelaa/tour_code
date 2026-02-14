@@ -83,6 +83,10 @@ class DispatchJobResponse(BaseModel):
     updated_at: datetime
     next_attempt_at: Optional[datetime] = None
     sent_at: Optional[datetime] = None
+    platform_mode: Optional[str] = None
+    items_total: int = 0
+    items_sent: int = 0
+    progress_percent: int = 0
 
 
 class DispatchJobsListResponse(BaseModel):
@@ -163,6 +167,44 @@ def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
 
 
 def _as_job_response(job: DispatchJob) -> DispatchJobResponse:
+    prepared_payload = job.prepared_payload if isinstance(job.prepared_payload, dict) else {}
+    response_payload = job.response_payload if isinstance(job.response_payload, dict) else {}
+
+    platform_mode = response_payload.get("mode") or prepared_payload.get("mode")
+
+    progress_raw = response_payload.get("progress")
+    if not isinstance(progress_raw, dict):
+        progress_raw = {}
+
+    def _to_int(value: Any) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    items_total = _to_int(progress_raw.get("total_items"))
+    items_sent = _to_int(progress_raw.get("sent_items"))
+
+    if items_total <= 0:
+        if platform_mode == "test":
+            items_total = len(prepared_payload.get("json_items") or [])
+            items_sent = max(items_sent, _to_int(response_payload.get("json_items_sent")))
+        elif platform_mode == "prod":
+            items_total = len(prepared_payload.get("save_items") or [])
+            items_sent = max(items_sent, _to_int(response_payload.get("save_items_sent")))
+        elif platform_mode == "dry_run":
+            items_total = _to_int(response_payload.get("items_total"))
+            items_sent = items_total
+
+    if job.status == DispatchJobStatus.SENT and items_total > 0:
+        items_sent = max(items_sent, items_total)
+
+    if items_total > 0:
+        progress_percent = int(round((items_sent / items_total) * 100))
+        progress_percent = max(0, min(100, progress_percent))
+    else:
+        progress_percent = 0
+
     return DispatchJobResponse(
         id=str(job.id),
         status=job.status.value if hasattr(job.status, "value") else str(job.status),
@@ -174,6 +216,10 @@ def _as_job_response(job: DispatchJob) -> DispatchJobResponse:
         updated_at=job.updated_at,
         next_attempt_at=job.next_attempt_at,
         sent_at=job.sent_at,
+        platform_mode=str(platform_mode) if platform_mode else None,
+        items_total=items_total,
+        items_sent=items_sent,
+        progress_percent=progress_percent,
     )
 
 

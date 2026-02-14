@@ -55,6 +55,10 @@ export interface DispatchJobResponse {
   updated_at: string;
   next_attempt_at?: string | null;
   sent_at?: string | null;
+  platform_mode?: string | null;
+  items_total?: number;
+  items_sent?: number;
+  progress_percent?: number;
 }
 
 export const enqueueDispatchJob = async (

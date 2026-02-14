@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
+import { Progress } from "../components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -19,7 +20,7 @@ import {
 import { Calendar, Clock, MapPin, Building, Upload, Plus } from "lucide-react";
 import { searchToursByDate, getSheetPilgrims, TourOption, PilgrimInPackage } from "../../src/lib/api/tours";
 import { uploadManifest, Pilgrim } from "../../src/lib/api/manifest";
-import { enqueueDispatchJob } from "../../src/lib/api/dispatch";
+import { enqueueDispatchJob, getDispatchJob } from "../../src/lib/api/dispatch";
 import { getTourPackage } from "../../src/lib/api/tourPackages";
 import { useSearchParams } from "react-router";
 
@@ -59,6 +60,8 @@ type EditingCell = {
   field: EditableField;
   value: string;
 };
+
+type DispatchStatus = "draft" | "queued" | "sending" | "sent" | "failed";
 
 type ComparablePilgrim = {
   surname?: string;
@@ -323,6 +326,14 @@ const findPassportDrivenManifestMatchIndex = (
   return candidates[0].index;
 };
 
+const DISPATCH_STATUS_META: Record<DispatchStatus, { label: string; tone: string }> = {
+  draft: { label: "Черновик", tone: "text-stone-600" },
+  queued: { label: "В очереди", tone: "text-amber-700" },
+  sending: { label: "Отправка", tone: "text-sky-700" },
+  sent: { label: "Успешно", tone: "text-green-700" },
+  failed: { label: "Ошибка", tone: "text-red-700" },
+};
+
 export function CreateTourCode() {
   const [searchParams] = useSearchParams();
   const prefilledTourId = searchParams.get("tourId");
@@ -357,6 +368,12 @@ export function CreateTourCode() {
   const [isComparing, setIsComparing] = useState(false);
   const [isQueueingDispatch, setIsQueueingDispatch] = useState(false);
   const [dispatchInfo, setDispatchInfo] = useState<string | null>(null);
+  const [dispatchJobId, setDispatchJobId] = useState<string | null>(null);
+  const [dispatchJobStatus, setDispatchJobStatus] = useState<DispatchStatus | null>(null);
+  const [dispatchItemsTotal, setDispatchItemsTotal] = useState(0);
+  const [dispatchItemsSent, setDispatchItemsSent] = useState(0);
+  const [dispatchProgressPercent, setDispatchProgressPercent] = useState(0);
+  const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [isPrefillingFromPackage, setIsPrefillingFromPackage] = useState(false);
   const [prefillDoneForTourId, setPrefillDoneForTourId] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
@@ -378,6 +395,37 @@ export function CreateTourCode() {
       return value.toUpperCase();
     }
     return value;
+  };
+
+  const resetDispatchTracking = () => {
+    setDispatchInfo(null);
+    setDispatchJobId(null);
+    setDispatchJobStatus(null);
+    setDispatchItemsTotal(0);
+    setDispatchItemsSent(0);
+    setDispatchProgressPercent(0);
+    setDispatchError(null);
+  };
+
+  const applyDispatchJobSnapshot = (snapshot: {
+    status?: string | null;
+    items_total?: number;
+    items_sent?: number;
+    progress_percent?: number;
+    error_message?: string | null;
+  }) => {
+    const normalizedStatus = (snapshot.status || "").toLowerCase();
+    const typedStatus = (Object.keys(DISPATCH_STATUS_META) as DispatchStatus[]).includes(
+      normalizedStatus as DispatchStatus
+    )
+      ? (normalizedStatus as DispatchStatus)
+      : null;
+
+    setDispatchJobStatus(typedStatus);
+    setDispatchItemsTotal(Number(snapshot.items_total || 0));
+    setDispatchItemsSent(Number(snapshot.items_sent || 0));
+    setDispatchProgressPercent(Number(snapshot.progress_percent || 0));
+    setDispatchError(snapshot.error_message || null);
   };
 
   const applyHickmetPreset = () => {
@@ -621,7 +669,7 @@ export function CreateTourCode() {
           tour_name: row.tour_name || detail.sheet_name || "",
         }));
         setAllInManifestNotSheet(inManifestFromDb);
-        setDispatchInfo(null);
+        resetDispatchTracking();
         setPrefillDoneForTourId(prefilledTourId);
       } catch (error) {
         if (!cancelled) {
@@ -638,6 +686,51 @@ export function CreateTourCode() {
       cancelled = true;
     };
   }, [prefilledTourId, prefillDoneForTourId]);
+
+  useEffect(() => {
+    if (!dispatchJobId) return;
+
+    const terminalStatuses = new Set<DispatchStatus>(["sent", "failed"]);
+    let isCancelled = false;
+    let pollTimer: number | undefined;
+
+    const poll = async () => {
+      try {
+        const snapshot = await getDispatchJob(dispatchJobId);
+        if (isCancelled) return;
+
+        applyDispatchJobSnapshot(snapshot);
+
+        const status = (snapshot.status || "").toLowerCase() as DispatchStatus;
+        if (status === "sent") {
+          const total = Number(snapshot.items_total || 0);
+          const sent = Number(snapshot.items_sent || 0);
+          setDispatchInfo(`Успешно отправлено ${sent}/${total}. ID задачи: ${snapshot.id}`);
+          return;
+        }
+        if (status === "failed") {
+          const message = snapshot.error_message || "Не удалось завершить отправку";
+          setDispatchError(message);
+          setDispatchInfo(`Задача завершилась с ошибкой. ID: ${snapshot.id}`);
+          return;
+        }
+        if (!terminalStatuses.has(status)) {
+          pollTimer = window.setTimeout(poll, 1200);
+        }
+      } catch (error) {
+        if (isCancelled) return;
+        console.error("Error polling dispatch job:", error);
+        pollTimer = window.setTimeout(poll, 2000);
+      }
+    };
+
+    poll();
+
+    return () => {
+      isCancelled = true;
+      if (pollTimer) window.clearTimeout(pollTimer);
+    };
+  }, [dispatchJobId]);
 
   const handleSearchTours = async () => {
     if (!dateInput || dateInput.length < 4) {
@@ -677,7 +770,7 @@ export function CreateTourCode() {
     setAllMatched([]);
     setAllInSheetNotManifest([]);
     setAllInManifestNotSheet([]);
-    setDispatchInfo(null);
+    resetDispatchTracking();
   };
 
   const handleManifestUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -690,7 +783,7 @@ export function CreateTourCode() {
     setAllMatched([]);
     setAllInSheetNotManifest([]);
     setAllInManifestNotSheet([]);
-    setDispatchInfo(null);
+    resetDispatchTracking();
 
     try {
       // 1. Парсим манифест
@@ -949,7 +1042,7 @@ export function CreateTourCode() {
 
     setIsQueueingDispatch(true);
     setManifestError(null);
-    setDispatchInfo(null);
+    resetDispatchTracking();
 
     try {
       const response = await enqueueDispatchJob({
@@ -999,9 +1092,12 @@ export function CreateTourCode() {
         manifest_filename: manifestFile.name,
       });
 
-      setDispatchInfo(`Задача поставлена в очередь: ${response.id} (status: ${response.status})`);
+      setDispatchJobId(response.id);
+      applyDispatchJobSnapshot(response);
+      setDispatchInfo(`Задача поставлена в очередь: ${response.id}`);
     } catch (error) {
       console.error("Error queueing dispatch:", error);
+      setDispatchError("Не удалось поставить задачу в очередь");
       setManifestError("Не удалось поставить задачу в очередь");
     } finally {
       setIsQueueingDispatch(false);
@@ -1054,9 +1150,18 @@ export function CreateTourCode() {
   const hotelOptions = selectedHotel && !hotels.includes(selectedHotel)
     ? [selectedHotel, ...hotels]
     : hotels;
+  const dispatchStatusView = dispatchJobStatus ? DISPATCH_STATUS_META[dispatchJobStatus] : null;
+  const dispatchProgressValue = Math.max(0, Math.min(100, dispatchProgressPercent || 0));
+  const dispatchHasProgress = Boolean(dispatchJobId);
 
   return (
-    <div className="p-6 md:p-12">
+    <div className="relative min-h-full bg-[#E8E0D4]">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-[#C4A265]/[0.1] blur-[100px]" />
+        <div className="absolute top-[40%] -left-60 w-[500px] h-[500px] rounded-full bg-[#B8985F]/[0.08] blur-[120px]" />
+        <div className="absolute -bottom-32 left-1/3 w-[400px] h-[400px] rounded-full bg-[#D4C5B0]/[0.09] blur-[100px]" />
+      </div>
+      <div className="relative px-6 py-10 md:px-14 md:py-14">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -1067,7 +1172,7 @@ export function CreateTourCode() {
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-2xl p-6 md:p-8 shadow-lg border border-[#E5DDD0]">
+        <div className="rounded-2xl backdrop-blur-2xl bg-white/[0.55] border border-white/70 shadow-[0_6px_24px_rgba(139,111,71,0.08),0_2px_6px_rgba(139,111,71,0.04)] p-6 md:p-8">
           <div className="space-y-6">
             {isPrefillingFromPackage && (
               <p className="text-sm text-[#6B5435]">
@@ -1087,7 +1192,7 @@ export function CreateTourCode() {
                     value={dateInput}
                     onChange={(e) => setDateInput(e.target.value)}
                     placeholder="Введите дату (например, 17.02)"
-                    className="bg-[#F5F1EA] border-[#E5DDD0] focus:border-[#B8985F]"
+                    className="bg-white/40 border-white/60 focus:border-[#B8985F]"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         handleSearchTours();
@@ -1124,7 +1229,7 @@ export function CreateTourCode() {
                           className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
                             isSelected
                               ? "bg-gradient-to-r from-[#B8985F]/40 to-[#A88952]/30 border-[#B8985F] shadow-lg ring-2 ring-[#B8985F]/50"
-                              : "bg-[#F5F1EA] border-[#E5DDD0] hover:border-[#B8985F] hover:shadow-md"
+                              : "bg-white/30 border-white/60 hover:border-[#B8985F] hover:shadow-md"
                           }`}
                         >
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -1160,14 +1265,14 @@ export function CreateTourCode() {
             {/* Диапазон дат и количество дней */}
             {dateRange && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gradient-to-r from-[#F5F1EA] to-[#F5F1EA]/50 p-4 rounded-lg border border-[#E5DDD0]">
+                <div className="bg-white/30 p-4 rounded-lg border border-white/60">
                   <label className="block mb-1 text-sm text-[#2B2318] flex items-center gap-2">
                     <Calendar className="w-3 h-3 text-[#B8985F]" />
                     Период тура
                   </label>
                   <div className="text-base text-[#2B2318]">{dateRange}</div>
                 </div>
-                <div className="bg-gradient-to-r from-[#F5F1EA] to-[#F5F1EA]/50 p-4 rounded-lg border border-[#E5DDD0]">
+                <div className="bg-white/30 p-4 rounded-lg border border-white/60">
                   <label className="block mb-1 text-sm text-[#2B2318] flex items-center gap-2">
                     <Clock className="w-3 h-3 text-[#B8985F]" />
                     Продолжительность
@@ -1187,7 +1292,7 @@ export function CreateTourCode() {
                   Страна
                 </label>
                 <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-                  <SelectTrigger className="bg-[#F5F1EA] border-[#E5DDD0] focus:border-[#B8985F]">
+                  <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1203,7 +1308,7 @@ export function CreateTourCode() {
                   Название отеля
                 </label>
                 <Select value={selectedHotel} onValueChange={setSelectedHotel}>
-                  <SelectTrigger className="bg-[#F5F1EA] border-[#E5DDD0] focus:border-[#B8985F]">
+                  <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
                     <SelectValue placeholder="Выберите отель" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1217,7 +1322,7 @@ export function CreateTourCode() {
               </div>
             </div>
 
-            <div className="border border-[#E5DDD0] rounded-lg p-4 bg-[#F5F1EA]/40">
+            <div className="border border-white/60 rounded-lg p-4 bg-white/30">
               <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
                 <div className="flex gap-2">
                   <Button
@@ -1281,7 +1386,7 @@ export function CreateTourCode() {
                   Данные манифеста
                 </label>
                 <div
-                  className="mt-3 border-2 border-dashed border-[#E5DDD0] rounded-lg p-6 text-center cursor-pointer hover:border-[#B8985F] hover:bg-[#F5F1EA]/50 transition-all"
+                  className="mt-3 border-2 border-dashed border-white/60 rounded-lg p-6 text-center cursor-pointer hover:border-[#B8985F] hover:bg-white/30 transition-all"
                   onClick={() => document.getElementById('manifest-file-input')?.click()}
                 >
                   <input
@@ -1497,8 +1602,32 @@ export function CreateTourCode() {
                 Отмена
               </Button>
             </div>
+            {dispatchHasProgress && (
+              <div className="mt-4 rounded-xl border border-[#E5DDD0] bg-[#FCF8F2] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-sm text-[#2B2318]">
+                    Задача: <span className="font-medium">{dispatchJobId}</span>
+                  </div>
+                  <div className={`text-sm font-medium ${dispatchStatusView?.tone || "text-[#6B5435]"}`}>
+                    {dispatchStatusView?.label || dispatchJobStatus || "В очереди"}
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <Progress value={dispatchProgressValue} className="h-2 bg-[#E5DDD0]" />
+                  <div className="mt-2 flex items-center justify-between text-xs text-[#6B5435]">
+                    <span>Отправлено: {dispatchItemsSent} / {dispatchItemsTotal}</span>
+                    <span>{dispatchProgressValue}%</span>
+                  </div>
+                </div>
+                {dispatchError && (
+                  <p className="mt-2 text-sm text-red-700">{dispatchError}</p>
+                )}
+              </div>
+            )}
             {dispatchInfo && (
-              <p className="text-sm text-green-700">{dispatchInfo}</p>
+              <p className={`text-sm ${dispatchJobStatus === "failed" ? "text-red-700" : "text-green-700"}`}>
+                {dispatchInfo}
+              </p>
             )}
 
             {matchedEditor && (
@@ -1591,6 +1720,7 @@ export function CreateTourCode() {
             )}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
