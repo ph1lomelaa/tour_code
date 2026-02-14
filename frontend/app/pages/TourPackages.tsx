@@ -11,12 +11,16 @@ import {
 } from "../components/ui/table";
 import { Search, Plus } from "lucide-react";
 import {
+  addTourPackagePilgrim,
+  ComparePilgrimRow,
+  enqueueTourPackageSingle,
   getTourPackage,
   listTourPackages,
+  MatchedPilgrimRow,
   TourPackageDetailResponse,
   TourPackageSummary,
 } from "../../src/lib/api/tourPackages";
-import { useNavigate } from "react-router";
+import { getDispatchJob } from "../../src/lib/api/dispatch";
 
 const toIsoDate = (dateValue: string): string => {
   const parts = dateValue.split(".");
@@ -26,15 +30,49 @@ const toIsoDate = (dateValue: string): string => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+const normalizeDocument = (value?: string) =>
+  (value || "").toUpperCase().replace(/[^0-9A-ZА-ЯЁ_]/g, "");
+
+const normalizeNameValue = (value?: string) =>
+  (value || "").trim().toUpperCase();
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+type EditableField = "surname" | "name" | "document";
+type EditableTable = "sheet" | "manifest";
+type EditingCell = {
+  table: EditableTable;
+  rowIndex: number;
+  field: EditableField;
+  value: string;
+};
+
+type PendingCreateTarget = {
+  table: EditableTable | "manual";
+  rowIndex?: number;
+};
+
 export function TourPackages() {
-  const navigate = useNavigate();
   const [tourPackages, setTourPackages] = useState<TourPackageSummary[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [selectedPackageDetail, setSelectedPackageDetail] = useState<TourPackageDetailResponse | null>(null);
+  const [matchedRows, setMatchedRows] = useState<MatchedPilgrimRow[]>([]);
+  const [sheetOnlyRows, setSheetOnlyRows] = useState<ComparePilgrimRow[]>([]);
+  const [manifestOnlyRows, setManifestOnlyRows] = useState<ComparePilgrimRow[]>([]);
+
   const [searchDate, setSearchDate] = useState("");
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
+  const [pendingCreateTarget, setPendingCreateTarget] = useState<PendingCreateTarget | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionInfo, setActionInfo] = useState<string | null>(null);
+
+  const [isManualCreateOpen, setIsManualCreateOpen] = useState(false);
+  const [manualSurname, setManualSurname] = useState("");
+  const [manualDocument, setManualDocument] = useState("");
 
   const loadTourPackages = async () => {
     setIsLoadingList(true);
@@ -57,9 +95,19 @@ export function TourPackages() {
     try {
       const response = await getTourPackage(tourId);
       setSelectedPackageDetail(response);
+      setMatchedRows(response.matched || []);
+      setSheetOnlyRows(response.in_sheet_not_in_manifest || []);
+      setManifestOnlyRows(response.in_manifest_not_in_sheet || []);
+      setActionError(null);
+      setActionInfo(null);
+      setEditingCell(null);
+      setPendingCreateTarget(null);
     } catch (e) {
       console.error("Error loading tour package detail:", e);
       setSelectedPackageDetail(null);
+      setMatchedRows([]);
+      setSheetOnlyRows([]);
+      setManifestOnlyRows([]);
       setError("Не удалось загрузить данные тура");
     } finally {
       setIsLoadingDetail(false);
@@ -85,9 +133,240 @@ export function TourPackages() {
     await loadTourPackageDetail(tourId);
   };
 
-  const matchedCount = selectedPackageDetail?.matched.length || 0;
-  const inSheetOnlyCount = selectedPackageDetail?.in_sheet_not_in_manifest.length || 0;
-  const inManifestOnlyCount = selectedPackageDetail?.in_manifest_not_in_sheet.length || 0;
+  const beginEditCell = (
+    table: EditableTable,
+    rowIndex: number,
+    field: EditableField,
+    value: string
+  ) => {
+    setEditingCell({
+      table,
+      rowIndex,
+      field,
+      value: value || "",
+    });
+  };
+
+  const commitEditCell = () => {
+    if (!editingCell) return;
+
+    const normalizedValue =
+      editingCell.field === "document"
+        ? normalizeDocument(editingCell.value)
+        : normalizeNameValue(editingCell.value);
+
+    if (editingCell.table === "sheet") {
+      setSheetOnlyRows((prev) =>
+        prev.map((row, index) =>
+          index === editingCell.rowIndex
+            ? { ...row, [editingCell.field]: normalizedValue }
+            : row
+        )
+      );
+    } else {
+      setManifestOnlyRows((prev) =>
+        prev.map((row, index) =>
+          index === editingCell.rowIndex
+            ? { ...row, [editingCell.field]: normalizedValue }
+            : row
+        )
+      );
+    }
+
+    setEditingCell(null);
+  };
+
+  const cancelEditCell = () => {
+    setEditingCell(null);
+  };
+
+  const renderEditableCell = (
+    table: EditableTable,
+    rowIndex: number,
+    field: EditableField,
+    value: string,
+    textClassName: string
+  ) => {
+    const isEditing =
+      editingCell?.table === table &&
+      editingCell?.rowIndex === rowIndex &&
+      editingCell?.field === field;
+
+    if (isEditing && editingCell) {
+      return (
+        <Input
+          autoFocus
+          value={editingCell.value}
+          onChange={(event) =>
+            setEditingCell((prev) => (prev ? { ...prev, value: event.target.value } : prev))
+          }
+          onBlur={commitEditCell}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") commitEditCell();
+            if (event.key === "Escape") cancelEditCell();
+          }}
+          className="h-8 bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+        />
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        className={`${textClassName} text-left w-full`}
+        onDoubleClick={() => beginEditCell(table, rowIndex, field, value)}
+        title="Двойной клик для редактирования"
+      >
+        {value || "-"}
+      </button>
+    );
+  };
+
+  const waitForDispatchCompletion = async (jobId: string) => {
+    for (let attempt = 0; attempt < 240; attempt += 1) {
+      const snapshot = await getDispatchJob(jobId);
+      const status = (snapshot.status || "").toLowerCase();
+      if (status === "sent") {
+        return { ok: true as const };
+      }
+      if (status === "failed") {
+        return {
+          ok: false as const,
+          error: snapshot.error_message || "Задача завершилась ошибкой",
+        };
+      }
+      await sleep(1200);
+    }
+
+    return {
+      ok: false as const,
+      error: "Превышено время ожидания результата очереди",
+    };
+  };
+
+  const appendMatchedRow = (row: MatchedPilgrimRow) => {
+    setMatchedRows((prev) => {
+      const normalizedDoc = normalizeDocument(row.document);
+      const exists = prev.some((p) => {
+        if (normalizeDocument(p.document) && normalizedDoc) {
+          return normalizeDocument(p.document) === normalizedDoc;
+        }
+        return (
+          normalizeNameValue(p.surname) === normalizeNameValue(row.surname) &&
+          normalizeNameValue(p.name) === normalizeNameValue(row.name)
+        );
+      });
+      if (exists) return prev;
+      return [...prev, row];
+    });
+  };
+
+  const createSingleAndPersist = async (
+    source: PendingCreateTarget,
+    row: ComparePilgrimRow
+  ): Promise<boolean> => {
+    if (!selectedPackageId || !selectedPackageDetail) {
+      setActionError("Сначала выберите тур");
+      return false;
+    }
+
+    const surname = normalizeNameValue(row.surname);
+    const name = normalizeNameValue(row.name);
+    const document = normalizeDocument(row.document);
+    if (!surname) {
+      setActionError("Фамилия обязательна");
+      return false;
+    }
+    if (!document) {
+      setActionError("Паспорт обязателен");
+      return false;
+    }
+
+    setPendingCreateTarget(source);
+    setActionError(null);
+    setActionInfo(null);
+
+    try {
+      const enqueueResponse = await enqueueTourPackageSingle(selectedPackageId, {
+        person: {
+          surname,
+          name,
+          document,
+          package_name: row.package_name || "",
+          tour_name: row.tour_name || selectedPackageDetail.sheet_name || "",
+        },
+        dispatch_overrides: {
+          filialid: selectedPackageDetail.dispatch_overrides?.filialid || "",
+          firmid: selectedPackageDetail.dispatch_overrides?.firmid || "",
+          firmname: selectedPackageDetail.dispatch_overrides?.firmname || "",
+          q_touragent: selectedPackageDetail.dispatch_overrides?.q_touragent || "",
+          q_touragent_bin: selectedPackageDetail.dispatch_overrides?.q_touragent_bin || "",
+        },
+      });
+
+      const completed = await waitForDispatchCompletion(enqueueResponse.id);
+      if (!completed.ok) {
+        throw new Error(completed.error);
+      }
+
+      const added = await addTourPackagePilgrim(selectedPackageId, {
+        full_name: `${surname} ${name || "-"}`.trim(),
+        document,
+        package_name: row.package_name || "",
+      });
+
+      appendMatchedRow(added);
+
+      if (source.table === "sheet" && typeof source.rowIndex === "number") {
+        setSheetOnlyRows((prev) => prev.filter((_, index) => index !== source.rowIndex));
+      }
+      if (source.table === "manifest" && typeof source.rowIndex === "number") {
+        setManifestOnlyRows((prev) => prev.filter((_, index) => index !== source.rowIndex));
+      }
+
+      setActionInfo(`Успешно отправлено: ${surname} ${name}`.trim());
+      return true;
+    } catch (e) {
+      console.error("Single dispatch failed:", e);
+      setActionError(e instanceof Error ? e.message : "Не удалось создать тур код");
+      return false;
+    } finally {
+      setPendingCreateTarget(null);
+    }
+  };
+
+  const handleCreateFromSheet = async (index: number) => {
+    const row = sheetOnlyRows[index];
+    if (!row) return;
+    await createSingleAndPersist({ table: "sheet", rowIndex: index }, row);
+  };
+
+  const handleCreateFromManifest = async (index: number) => {
+    const row = manifestOnlyRows[index];
+    if (!row) return;
+    await createSingleAndPersist({ table: "manifest", rowIndex: index }, row);
+  };
+
+  const handleManualCreate = async () => {
+    const row: ComparePilgrimRow = {
+      surname: manualSurname,
+      name: "",
+      document: manualDocument,
+      package_name: "",
+      tour_name: selectedPackageDetail?.sheet_name || "",
+    };
+
+    const ok = await createSingleAndPersist({ table: "manual" }, row);
+    if (ok) {
+      setManualSurname("");
+      setManualDocument("");
+      setIsManualCreateOpen(false);
+    }
+  };
+
+  const matchedCount = matchedRows.length;
+  const inSheetOnlyCount = sheetOnlyRows.length;
+  const inManifestOnlyCount = manifestOnlyRows.length;
 
   return (
     <div className="p-12">
@@ -165,7 +444,10 @@ export function TourPackages() {
                 {selectedPackageDetail && (
                   <Button
                     className="bg-gradient-to-r from-[#B8985F] to-[#A88952] hover:from-[#A88952] hover:to-[#8B6F47] text-white"
-                    onClick={() => navigate(`/create?tourId=${selectedPackageDetail.id}`)}
+                    onClick={() => {
+                      setIsManualCreateOpen(true);
+                      setActionError(null);
+                    }}
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Создать
@@ -174,6 +456,8 @@ export function TourPackages() {
               </div>
 
               {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+              {actionError && <p className="mb-4 text-sm text-red-600">{actionError}</p>}
+              {actionInfo && <p className="mb-4 text-sm text-green-700">{actionInfo}</p>}
 
               {selectedPackageId ? (
                 isLoadingDetail ? (
@@ -229,7 +513,7 @@ export function TourPackages() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {selectedPackageDetail.matched.map((row, idx) => (
+                            {matchedRows.map((row, idx) => (
                               <TableRow key={row.id}>
                                 <TableCell>{idx + 1}</TableCell>
                                 <TableCell>{row.surname}</TableCell>
@@ -244,69 +528,131 @@ export function TourPackages() {
                       </div>
                     </div>
 
-                    <div>
-                      <h4 className="mb-2 text-[#2B2318] font-medium">
-                        В таблице, нет в манифесте ({inSheetOnlyCount})
-                      </h4>
-                      <div className="border border-[#FFD4A3] rounded-lg overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-[#FFF4E6] hover:bg-[#FFF4E6]">
-                              <TableHead className="w-12">№</TableHead>
-                              <TableHead>Фамилия</TableHead>
-                              <TableHead>Имя</TableHead>
-                              <TableHead>Паспорт</TableHead>
-                              <TableHead>Пакет</TableHead>
-                              <TableHead>Тур код</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {selectedPackageDetail.in_sheet_not_in_manifest.map((row, idx) => (
-                              <TableRow key={`${row.surname}-${row.name}-${row.document}-${idx}`}>
-                                <TableCell>{idx + 1}</TableCell>
-                                <TableCell>{row.surname}</TableCell>
-                                <TableCell>{row.name}</TableCell>
-                                <TableCell>{row.document || "-"}</TableCell>
-                                <TableCell>{row.package_name || "-"}</TableCell>
-                                <TableCell>-</TableCell>
+                    {inSheetOnlyCount > 0 && (
+                      <div>
+                        <h4 className="mb-2 text-[#2B2318] font-medium">
+                          В таблице, нет в манифесте ({inSheetOnlyCount})
+                        </h4>
+                        <div className="border border-[#FFD4A3] rounded-lg overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-[#FFF4E6] hover:bg-[#FFF4E6]">
+                                <TableHead className="w-12">№</TableHead>
+                                <TableHead>Фамилия</TableHead>
+                                <TableHead>Имя</TableHead>
+                                <TableHead>Паспорт</TableHead>
+                                <TableHead>Пакет</TableHead>
+                                <TableHead>Тур код</TableHead>
+                                <TableHead>Создать</TableHead>
                               </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                            </TableHeader>
+                            <TableBody>
+                              {sheetOnlyRows.map((row, idx) => {
+                                const isPending =
+                                  pendingCreateTarget?.table === "sheet" &&
+                                  pendingCreateTarget?.rowIndex === idx;
+                                const hasDocument = Boolean(normalizeDocument(row.document));
+                                const hasSurname = Boolean(normalizeNameValue(row.surname));
+                                return (
+                                  <TableRow key={`${row.surname}-${row.name}-${row.document}-${idx}`}>
+                                    <TableCell>{idx + 1}</TableCell>
+                                    <TableCell>
+                                      {renderEditableCell("sheet", idx, "surname", row.surname, "text-[#2B2318]")}
+                                    </TableCell>
+                                    <TableCell>
+                                      {renderEditableCell("sheet", idx, "name", row.name, "text-[#2B2318]")}
+                                    </TableCell>
+                                    <TableCell>
+                                      {renderEditableCell("sheet", idx, "document", row.document || "", "text-[#6B5435]")}
+                                    </TableCell>
+                                    <TableCell>{row.package_name || "-"}</TableCell>
+                                    <TableCell>-</TableCell>
+                                    <TableCell>
+                                      {hasDocument && hasSurname ? (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                                          disabled={Boolean(pendingCreateTarget)}
+                                          onClick={() => handleCreateFromSheet(idx)}
+                                        >
+                                          {isPending ? "Отправка..." : "Создать"}
+                                        </Button>
+                                      ) : (
+                                        <span className="text-[#6B5435]">-</span>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    <div>
-                      <h4 className="mb-2 text-[#2B2318] font-medium">
-                        В манифесте, нет в таблице ({inManifestOnlyCount})
-                      </h4>
-                      <div className="border border-red-200 rounded-lg overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-red-50 hover:bg-red-50">
-                              <TableHead className="w-12">№</TableHead>
-                              <TableHead>Фамилия</TableHead>
-                              <TableHead>Имя</TableHead>
-                              <TableHead>Паспорт</TableHead>
-                              <TableHead>Пакет</TableHead>
-                              <TableHead>Тур код</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {selectedPackageDetail.in_manifest_not_in_sheet.map((row, idx) => (
-                              <TableRow key={`${row.surname}-${row.name}-${row.document}-${idx}`}>
-                                <TableCell>{idx + 1}</TableCell>
-                                <TableCell>{row.surname}</TableCell>
-                                <TableCell>{row.name}</TableCell>
-                                <TableCell>{row.document || "-"}</TableCell>
-                                <TableCell>{row.package_name || "-"}</TableCell>
-                                <TableCell>-</TableCell>
+                    {inManifestOnlyCount > 0 && (
+                      <div>
+                        <h4 className="mb-2 text-[#2B2318] font-medium">
+                          В манифесте, нет в таблице ({inManifestOnlyCount})
+                        </h4>
+                        <div className="border border-red-200 rounded-lg overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-red-50 hover:bg-red-50">
+                                <TableHead className="w-12">№</TableHead>
+                                <TableHead>Фамилия</TableHead>
+                                <TableHead>Имя</TableHead>
+                                <TableHead>Паспорт</TableHead>
+                                <TableHead>Пакет</TableHead>
+                                <TableHead>Тур код</TableHead>
+                                <TableHead>Создать</TableHead>
                               </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                            </TableHeader>
+                            <TableBody>
+                              {manifestOnlyRows.map((row, idx) => {
+                                const isPending =
+                                  pendingCreateTarget?.table === "manifest" &&
+                                  pendingCreateTarget?.rowIndex === idx;
+                                const hasDocument = Boolean(normalizeDocument(row.document));
+                                const hasSurname = Boolean(normalizeNameValue(row.surname));
+                                return (
+                                  <TableRow key={`${row.surname}-${row.name}-${row.document}-${idx}`}>
+                                    <TableCell>{idx + 1}</TableCell>
+                                    <TableCell>
+                                      {renderEditableCell("manifest", idx, "surname", row.surname, "text-[#2B2318]")}
+                                    </TableCell>
+                                    <TableCell>
+                                      {renderEditableCell("manifest", idx, "name", row.name, "text-[#2B2318]")}
+                                    </TableCell>
+                                    <TableCell>
+                                      {renderEditableCell("manifest", idx, "document", row.document || "", "text-[#6B5435]")}
+                                    </TableCell>
+                                    <TableCell>{row.package_name || "-"}</TableCell>
+                                    <TableCell>-</TableCell>
+                                    <TableCell>
+                                      {hasDocument && hasSurname ? (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                                          disabled={Boolean(pendingCreateTarget)}
+                                          onClick={() => handleCreateFromManifest(idx)}
+                                        >
+                                          {isPending ? "Отправка..." : "Создать"}
+                                        </Button>
+                                      ) : (
+                                        <span className="text-[#6B5435]">-</span>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )
               ) : (
@@ -318,6 +664,60 @@ export function TourPackages() {
           </div>
         </div>
       </div>
+
+      {isManualCreateOpen && (
+        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-xl border border-[#E5DDD0] bg-white p-5 shadow-2xl">
+            <h4 className="text-[#2B2318] font-medium mb-4">Создать тур код вручную</h4>
+            <div className="space-y-3">
+              <div>
+                <label className="block mb-1 text-sm text-[#2B2318]">Фамилия</label>
+                <Input
+                  value={manualSurname}
+                  onChange={(e) => setManualSurname(e.target.value)}
+                  className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm text-[#2B2318]">Паспорт</label>
+                <Input
+                  value={manualDocument}
+                  onChange={(e) => setManualDocument(e.target.value)}
+                  className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <Button
+                type="button"
+                className="w-full sm:w-[230px] bg-gradient-to-r from-[#5E8C6B] to-[#4F7B5C] hover:from-[#4F7B5C] hover:to-[#446A50] text-white shadow-sm"
+                disabled={
+                  Boolean(pendingCreateTarget) ||
+                  !normalizeNameValue(manualSurname) ||
+                  !normalizeDocument(manualDocument)
+                }
+                onClick={handleManualCreate}
+              >
+                {pendingCreateTarget?.table === "manual" ? "Отправка..." : "Подтвердить создание тур кода"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-[230px] border-[#D8CCB8] bg-white text-[#6B5435] hover:bg-[#F5F1EA]"
+                disabled={Boolean(pendingCreateTarget)}
+                onClick={() => {
+                  setIsManualCreateOpen(false);
+                  setManualSurname("");
+                  setManualDocument("");
+                }}
+              >
+                Отмена
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

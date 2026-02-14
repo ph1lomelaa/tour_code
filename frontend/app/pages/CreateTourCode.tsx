@@ -799,6 +799,8 @@ export function CreateTourCode() {
       setManifestError("Ошибка загрузки манифеста. Проверьте формат файла.");
     } finally {
       setIsUploadingManifest(false);
+      // Позволяет повторно выбрать этот же файл и запустить сравнение заново.
+      event.target.value = "";
     }
   };
 
@@ -1027,8 +1029,8 @@ export function CreateTourCode() {
       setManifestError("Сначала выберите тур");
       return;
     }
-    if (!selectedHotel || !selectedFlight || !selectedCountry) {
-      setManifestError("Заполните страну, рейс и отель");
+    if (!selectedFlight || !selectedCountry) {
+      setManifestError("Заполните страну и рейс");
       return;
     }
     if (!hasResults && (!manifestFile || manifestPilgrims.length === 0)) {
@@ -1589,7 +1591,7 @@ export function CreateTourCode() {
             <div className="flex gap-4 pt-4 border-t border-[#E5DDD0]">
               <Button
                 onClick={handleCreateTourCode}
-                disabled={!selectedDateShort || !selectedFlight || !selectedHotel || isQueueingDispatch}
+                disabled={!selectedDateShort || !selectedFlight || isQueueingDispatch}
                 className="bg-gradient-to-r from-[#B8985F] to-[#A88952] hover:from-[#A88952] hover:to-[#8B6F47] text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />

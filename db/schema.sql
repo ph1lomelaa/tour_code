@@ -91,7 +91,6 @@ CREATE TABLE IF NOT EXISTS pilgrims (
     name            VARCHAR(100) NOT NULL,
     document        VARCHAR(50),                   -- c_doc_number
     package_name    VARCHAR(255),                  -- "17.02-24.02 NIYET"
-    tour_code       VARCHAR(64),
     created_at      TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -100,7 +99,6 @@ CREATE INDEX IF NOT EXISTS ix_pilgrims_surname    ON pilgrims (surname);
 CREATE INDEX IF NOT EXISTS ix_pilgrims_name       ON pilgrims (name);
 CREATE INDEX IF NOT EXISTS ix_pilgrims_document   ON pilgrims (document);
 CREATE INDEX IF NOT EXISTS ix_pilgrims_package    ON pilgrims (package_name);
-CREATE INDEX IF NOT EXISTS ix_pilgrims_tour_code  ON pilgrims (tour_code);
 
 
 -- ── 4. tour_offers (сегменты перелётов) ─────────────────

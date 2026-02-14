@@ -65,6 +65,34 @@ export interface AddTourPilgrimPayload {
   package_name?: string;
 }
 
+export interface TourPackageDispatchSinglePayload {
+  person: {
+    surname: string;
+    name: string;
+    document: string;
+    package_name?: string;
+    tour_name?: string;
+  };
+  dispatch_overrides?: {
+    filialid?: string;
+    firmid?: string;
+    firmname?: string;
+    q_touragent?: string;
+    q_touragent_bin?: string;
+  };
+}
+
+export interface TourPackageDispatchSingleResponse {
+  id: string;
+  status: string;
+  attempt_count: number;
+  max_attempts: number;
+  celery_task_id?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export const listTourPackages = async (): Promise<TourPackageListResponse> => {
   const response = await api.get<TourPackageListResponse>('/api/v1/tour-packages');
   return response.data;
@@ -80,5 +108,16 @@ export const addTourPackagePilgrim = async (
   payload: AddTourPilgrimPayload
 ): Promise<MatchedPilgrimRow> => {
   const response = await api.post<MatchedPilgrimRow>(`/api/v1/tour-packages/${tourId}/pilgrims`, payload);
+  return response.data;
+};
+
+export const enqueueTourPackageSingle = async (
+  tourId: string,
+  payload: TourPackageDispatchSinglePayload
+): Promise<TourPackageDispatchSingleResponse> => {
+  const response = await api.post<TourPackageDispatchSingleResponse>(
+    `/api/v1/tour-packages/${tourId}/dispatch-single`,
+    payload
+  );
   return response.data;
 };
