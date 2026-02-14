@@ -38,7 +38,18 @@ const hotels = [
 // Паломник с привязкой к пакету
 type PilgrimWithPackage = PilgrimInPackage & { package_name: string; tour_name: string };
 type ManifestPilgrimWithPackage = Pilgrim & { package_name?: string; tour_name?: string; tour_code?: string };
-type MatchedPilgrim = Pilgrim & { package_name: string; tour_name: string; tour_code?: string };
+type MatchedOriginTable = "sheet" | "manifest";
+type MatchedPilgrim = Pilgrim & {
+  package_name: string;
+  tour_name: string;
+  tour_code?: string;
+  _sourceTable?: MatchedOriginTable;
+};
+type MatchedEditableField = "surname" | "name" | "document" | "package_name" | "tour_name";
+type MatchedEditorState = {
+  index: number;
+  draft: MatchedPilgrim;
+};
 
 type EditableField = "surname" | "name" | "document";
 type EditableTable = "sheet" | "manifest";
@@ -323,6 +334,8 @@ export function CreateTourCode() {
   const [selectedFlight, setSelectedFlight] = useState("");
   const [selectedCountry, setSelectedCountry] = useState("Саудовская Аравия");
   const [selectedHotel, setSelectedHotel] = useState("");
+  const [dispatchTouragentName, setDispatchTouragentName] = useState("HICKMET PREMIUM");
+  const [dispatchTouragentBin, setDispatchTouragentBin] = useState("240340000277");
 
   // Tour search
   const [tourOptions, setTourOptions] = useState<TourOption[]>([]);
@@ -347,6 +360,7 @@ export function CreateTourCode() {
   const [isPrefillingFromPackage, setIsPrefillingFromPackage] = useState(false);
   const [prefillDoneForTourId, setPrefillDoneForTourId] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
+  const [matchedEditor, setMatchedEditor] = useState<MatchedEditorState | null>(null);
 
   // ============= Handlers =============
 
@@ -355,6 +369,140 @@ export function CreateTourCode() {
     if (!value) return "";
     if (field === "document") return value.toUpperCase();
     return value.toUpperCase();
+  };
+
+  const normalizeMatchedValue = (field: MatchedEditableField, rawValue: string): string => {
+    const value = rawValue.trim();
+    if (!value) return "";
+    if (field === "surname" || field === "name" || field === "document") {
+      return value.toUpperCase();
+    }
+    return value;
+  };
+
+  const applyHickmetPreset = () => {
+    setDispatchTouragentName("HICKMET PREMIUM");
+    setDispatchTouragentBin("240340000277");
+  };
+
+  const applyNiyetPreset = () => {
+    setDispatchTouragentName("NIYET");
+    setDispatchTouragentBin("");
+  };
+
+  const clearDispatchOverrides = () => {
+    setDispatchTouragentName("");
+    setDispatchTouragentBin("");
+  };
+
+  const openMatchedEditor = (index: number) => {
+    const row = allMatched[index];
+    if (!row) return;
+    setMatchedEditor({
+      index,
+      draft: { ...row },
+    });
+  };
+
+  const updateMatchedEditorField = (field: MatchedEditableField, value: string) => {
+    setMatchedEditor((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        draft: {
+          ...prev.draft,
+          [field]: value,
+        },
+      };
+    });
+  };
+
+  const saveMatchedEditor = () => {
+    if (!matchedEditor) return;
+
+    const normalizedDraft: MatchedPilgrim = {
+      ...matchedEditor.draft,
+      surname: normalizeMatchedValue("surname", matchedEditor.draft.surname || ""),
+      name: normalizeMatchedValue("name", matchedEditor.draft.name || ""),
+      document: normalizeMatchedValue("document", matchedEditor.draft.document || ""),
+      package_name: normalizeMatchedValue("package_name", matchedEditor.draft.package_name || ""),
+      tour_name: normalizeMatchedValue("tour_name", matchedEditor.draft.tour_name || ""),
+    };
+
+    setAllMatched((prev) =>
+      prev.map((row, index) => (index === matchedEditor.index ? normalizedDraft : row))
+    );
+    setMatchedEditor(null);
+  };
+
+  const deleteMatchedEditorRow = () => {
+    if (!matchedEditor) return;
+    setAllMatched((prev) => prev.filter((_, index) => index !== matchedEditor.index));
+    setMatchedEditor(null);
+  };
+
+  const returnMatchedToSource = () => {
+    if (!matchedEditor) return;
+    const source = matchedEditor.draft._sourceTable;
+    if (!source) return;
+
+    const row: MatchedPilgrim = {
+      ...matchedEditor.draft,
+      surname: normalizeMatchedValue("surname", matchedEditor.draft.surname || ""),
+      name: normalizeMatchedValue("name", matchedEditor.draft.name || ""),
+      document: normalizeMatchedValue("document", matchedEditor.draft.document || ""),
+      package_name: normalizeMatchedValue("package_name", matchedEditor.draft.package_name || ""),
+      tour_name: normalizeMatchedValue("tour_name", matchedEditor.draft.tour_name || ""),
+    };
+
+    if (source === "sheet") {
+      const restoredRow: PilgrimWithPackage = {
+        surname: row.surname,
+        name: row.name,
+        document: row.document || "",
+        iin: row.iin || "",
+        manager: row.manager || "",
+        room_type: "",
+        meal_type: "",
+        package_name: row.package_name,
+        tour_name: row.tour_name,
+      };
+
+      setAllInSheetNotManifest((prev) => {
+        const alreadyExists = prev.some((p) =>
+          normalizeNamePart(p.surname) === normalizeNamePart(restoredRow.surname) &&
+          normalizeNamePart(p.name) === normalizeNamePart(restoredRow.name) &&
+          normalizeDocument(p.document) === normalizeDocument(restoredRow.document) &&
+          (p.package_name || "") === (restoredRow.package_name || "")
+        );
+        if (alreadyExists) return prev;
+        return [...prev, restoredRow];
+      });
+    } else {
+      const restoredRow: ManifestPilgrimWithPackage = {
+        surname: row.surname,
+        name: row.name,
+        document: row.document || "",
+        iin: row.iin || "",
+        package_name: row.package_name || "",
+        tour_name: row.tour_name || (selectedTour?.sheet_name || ""),
+        tour_code: row.tour_code || "",
+      };
+
+      setAllInManifestNotSheet((prev) => {
+        const alreadyExists = prev.some((p) =>
+          normalizeNamePart(p.surname) === normalizeNamePart(restoredRow.surname) &&
+          normalizeNamePart(p.name) === normalizeNamePart(restoredRow.name) &&
+          normalizeDocument(p.document) === normalizeDocument(restoredRow.document) &&
+          (p.package_name || "") === (restoredRow.package_name || "")
+        );
+        if (alreadyExists) return prev;
+        return [...prev, restoredRow];
+      });
+    }
+
+    setAllMatched((prev) => prev.filter((_, index) => index !== matchedEditor.index));
+    setMatchedEditor(null);
   };
 
   const beginEditCell = (
@@ -431,6 +579,8 @@ export function CreateTourCode() {
         setSelectedFlight(preselectedTour.route || "");
         setSelectedCountry(detail.country || "Саудовская Аравия");
         setSelectedHotel(detail.hotel || "");
+        setDispatchTouragentName(detail.dispatch_overrides?.q_touragent || "");
+        setDispatchTouragentBin(detail.dispatch_overrides?.q_touragent_bin || "");
 
         const dateParts = (detail.date_start || "").split(".");
         if (dateParts.length >= 2) {
@@ -720,6 +870,7 @@ export function CreateTourCode() {
   const handleAddToMatchedFromSheet = (index: number) => {
     const row = allInSheetNotManifest[index];
     if (!row) return;
+    if (!normalizeDocument(row.document)) return;
 
     const addedRow: MatchedPilgrim = {
       surname: row.surname,
@@ -730,6 +881,7 @@ export function CreateTourCode() {
       package_name: row.package_name,
       tour_name: row.tour_name,
       tour_code: "",
+      _sourceTable: "sheet",
     };
 
     setAllMatched((prev) => {
@@ -744,6 +896,37 @@ export function CreateTourCode() {
     });
 
     setAllInSheetNotManifest((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddToMatchedFromManifest = (index: number) => {
+    const row = allInManifestNotSheet[index];
+    if (!row) return;
+    if (!normalizeDocument(row.document)) return;
+
+    const addedRow: MatchedPilgrim = {
+      surname: row.surname,
+      name: row.name,
+      document: row.document || "",
+      iin: row.iin || "",
+      manager: "",
+      package_name: row.package_name || "",
+      tour_name: row.tour_name || (selectedTour?.sheet_name || ""),
+      tour_code: "",
+      _sourceTable: "manifest",
+    };
+
+    setAllMatched((prev) => {
+      const alreadyExists = prev.some((p) =>
+        normalizeNamePart(p.surname) === normalizeNamePart(addedRow.surname) &&
+        normalizeNamePart(p.name) === normalizeNamePart(addedRow.name) &&
+        normalizeDocument(p.document) === normalizeDocument(addedRow.document) &&
+        (p.package_name || "") === (addedRow.package_name || "")
+      );
+      if (alreadyExists) return prev;
+      return [...prev, addedRow];
+    });
+
+    setAllInManifestNotSheet((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleCreateTourCode = async () => {
@@ -785,6 +968,10 @@ export function CreateTourCode() {
           hotel: selectedHotel,
           flight: selectedFlight,
           remark: "",
+        },
+        dispatch_overrides: {
+          q_touragent: dispatchTouragentName.trim(),
+          q_touragent_bin: dispatchTouragentBin.trim(),
         },
         results: {
           matched: allMatched.map((p) => ({
@@ -1030,6 +1217,58 @@ export function CreateTourCode() {
               </div>
             </div>
 
+            <div className="border border-[#E5DDD0] rounded-lg p-4 bg-[#F5F1EA]/40">
+              <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="border-[#E5DDD0] hover:bg-white"
+                    onClick={applyHickmetPreset}
+                  >
+                    HICKMET PREMIUM
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="border-[#E5DDD0] hover:bg-white"
+                    onClick={applyNiyetPreset}
+                  >
+                    NIYET
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="border-[#E5DDD0] hover:bg-white"
+                    onClick={clearDispatchOverrides}
+                  >
+                    Очистить
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block mb-1 text-sm text-[#2B2318]">Турагент</label>
+                  <Input
+                    value={dispatchTouragentName}
+                    onChange={(e) => setDispatchTouragentName(e.target.value)}
+                    className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm text-[#2B2318]">БИН турагента</label>
+                  <Input
+                    value={dispatchTouragentBin}
+                    onChange={(e) => setDispatchTouragentBin(e.target.value)}
+                    className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Манифест */}
             <div className="border-t border-[#E5DDD0] pt-6">
               <h3 className="mb-4 text-[#2B2318] flex items-center gap-2">
@@ -1106,19 +1345,22 @@ export function CreateTourCode() {
                           <TableHead className="text-[#2B2318]">Паспорт</TableHead>
                           <TableHead className="text-[#2B2318]">Пакет</TableHead>
                           <TableHead className="text-[#2B2318]">Тур</TableHead>
-                          <TableHead className="text-[#2B2318]">Тур код</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {allMatched.map((p, i) => (
-                          <TableRow key={`m-${p.document}-${i}`} className="hover:bg-green-50/30">
+                          <TableRow
+                            key={`m-${p.document}-${i}`}
+                            className="hover:bg-green-50/30 cursor-pointer"
+                            onDoubleClick={() => openMatchedEditor(i)}
+                            title="Двойной клик для редактирования"
+                          >
                             <TableCell className="text-[#6B5435]">{i + 1}</TableCell>
                             <TableCell className="text-[#2B2318]">{p.surname}</TableCell>
                             <TableCell className="text-[#2B2318]">{p.name}</TableCell>
                             <TableCell className="text-[#6B5435]">{p.document || "-"}</TableCell>
                             <TableCell className="text-[#6B5435]">{p.package_name}</TableCell>
                             <TableCell className="text-[#6B5435]">{p.tour_name}</TableCell>
-                            <TableCell className="text-[#6B5435]">{p.tour_code || "-"}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -1142,7 +1384,6 @@ export function CreateTourCode() {
                           <TableHead className="text-[#2B2318]">Имя</TableHead>
                           <TableHead className="text-[#2B2318]">Паспорт</TableHead>
                           <TableHead className="text-[#2B2318]">Пакет</TableHead>
-                          <TableHead className="text-[#2B2318]">Тур код</TableHead>
                           <TableHead className="text-[#2B2318]">Добавить</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1160,16 +1401,19 @@ export function CreateTourCode() {
                               {renderEditableCell("sheet", i, "document", p.document || "", "text-[#6B5435]")}
                             </TableCell>
                             <TableCell className="text-[#6B5435]">{p.package_name}</TableCell>
-                            <TableCell className="text-[#6B5435]">-</TableCell>
                             <TableCell>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
-                                onClick={() => handleAddToMatchedFromSheet(i)}
-                              >
-                                Добавить
-                              </Button>
+                              {normalizeDocument(p.document) ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                                  onClick={() => handleAddToMatchedFromSheet(i)}
+                                >
+                                  Добавить
+                                </Button>
+                              ) : (
+                                <span className="text-[#6B5435]">-</span>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1195,7 +1439,7 @@ export function CreateTourCode() {
                           <TableHead className="text-[#2B2318]">Паспорт</TableHead>
                           <TableHead className="text-[#2B2318]">Пакет</TableHead>
                           <TableHead className="text-[#2B2318]">Тур</TableHead>
-                          <TableHead className="text-[#2B2318]">Тур код</TableHead>
+                          <TableHead className="text-[#2B2318]">Добавить</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1213,7 +1457,20 @@ export function CreateTourCode() {
                             </TableCell>
                             <TableCell className="text-[#6B5435]">{p.package_name || "-"}</TableCell>
                             <TableCell className="text-[#6B5435]">{p.tour_name || "-"}</TableCell>
-                            <TableCell className="text-[#6B5435]">{p.tour_code || "-"}</TableCell>
+                            <TableCell>
+                              {normalizeDocument(p.document) ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                                  onClick={() => handleAddToMatchedFromManifest(i)}
+                                >
+                                  Добавить
+                                </Button>
+                              ) : (
+                                <span className="text-[#6B5435]">-</span>
+                              )}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -1242,6 +1499,95 @@ export function CreateTourCode() {
             </div>
             {dispatchInfo && (
               <p className="text-sm text-green-700">{dispatchInfo}</p>
+            )}
+
+            {matchedEditor && (
+              <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
+                <div className="w-full max-w-lg rounded-xl border border-[#E5DDD0] bg-white p-5 shadow-2xl">
+                  <h4 className="text-[#2B2318] font-medium mb-4">Редактирование совпадения</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block mb-1 text-sm text-[#2B2318]">Фамилия</label>
+                      <Input
+                        value={matchedEditor.draft.surname || ""}
+                        onChange={(e) => updateMatchedEditorField("surname", e.target.value)}
+                        className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block mb-1 text-sm text-[#2B2318]">Имя</label>
+                      <Input
+                        value={matchedEditor.draft.name || ""}
+                        onChange={(e) => updateMatchedEditorField("name", e.target.value)}
+                        className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block mb-1 text-sm text-[#2B2318]">Паспорт</label>
+                      <Input
+                        value={matchedEditor.draft.document || ""}
+                        onChange={(e) => updateMatchedEditorField("document", e.target.value)}
+                        className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block mb-1 text-sm text-[#2B2318]">Пакет</label>
+                      <Input
+                        value={matchedEditor.draft.package_name || ""}
+                        onChange={(e) => updateMatchedEditorField("package_name", e.target.value)}
+                        className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block mb-1 text-sm text-[#2B2318]">Тур</label>
+                      <Input
+                        value={matchedEditor.draft.tour_name || ""}
+                        onChange={(e) => updateMatchedEditorField("tour_name", e.target.value)}
+                        className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-5 space-y-2">
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <Button
+                        type="button"
+                        className="w-full sm:w-[210px] bg-gradient-to-r from-[#B96464] to-[#A95555] hover:from-[#A95555] hover:to-[#944848] text-white shadow-sm"
+                        onClick={deleteMatchedEditorRow}
+                      >
+                        Удалить запись
+                      </Button>
+                      <Button
+                        type="button"
+                        className="w-full sm:w-[210px] bg-gradient-to-r from-[#5E8C6B] to-[#4F7B5C] hover:from-[#4F7B5C] hover:to-[#446A50] text-white shadow-sm"
+                        onClick={saveMatchedEditor}
+                      >
+                        Сохранить
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {matchedEditor.draft._sourceTable && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full sm:w-[300px] border-[#D8CCB8] bg-[#FCF8F2] text-[#6B5435] hover:bg-[#F2E9DB]"
+                          onClick={returnMatchedToSource}
+                        >
+                          Вернуть в предыдущую таблицу
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full sm:w-[210px] border-[#D8CCB8] bg-white text-[#6B5435] hover:bg-[#F5F1EA]"
+                        onClick={() => setMatchedEditor(null)}
+                      >
+                        Отмена
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>

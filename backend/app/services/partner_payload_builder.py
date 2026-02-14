@@ -26,90 +26,123 @@ def _split_route(route: str) -> Tuple[str, str]:
     return left.strip(), right.strip()
 
 
-def _build_clients_input(matched: List[Dict[str, Any]]) -> Dict[str, Any]:
-    data: Dict[str, Any] = {}
+def _build_clients_input(matched: List[Dict[str, Any]]) -> Dict[str, str]:
+    data: Dict[str, str] = {}
     for idx, row in enumerate(matched):
-        surname = (row.get("surname") or "").strip()
-        name = (row.get("name") or "").strip()
-        doc = (row.get("document") or "").strip()
-        full_name = f"{surname} {name}".strip()
+        surname = (row.get("surname") or "").strip().upper()
+        name = (row.get("name") or "").strip().upper()
+        doc = (row.get("document") or "").strip().upper()
+        client_name = settings.DISPATCH_CLIENT_NAME_TEMPLATE or f"Client_{idx + 1}"
 
-        data[f"c_name_{idx}"] = full_name or f"Client_{idx + 1}"
+        data[f"c_name_{idx}"] = client_name
+        # В прод-формате это поле передаём только фамилией (латиница/верхний регистр).
+        data[f"c_nmeng_{idx}"] = surname or name or f"CLIENT_{idx + 1}"
+        data[f"c_borned_{idx}"] = settings.DISPATCH_DEFAULT_BIRTH_DATE
+        data[f"c_doc_type_{idx}"] = settings.DISPATCH_DEFAULT_DOC_TYPE
         data[f"c_doc_number_{idx}"] = doc
+        data[f"c_doc_production_{idx}"] = settings.DISPATCH_DEFAULT_DOC_PRODUCTION
+        data[f"c_doc_date_{idx}"] = ""
+        data[f"c_bin_{idx}"] = ""
+        data[f"c_sex_{idx}"] = ""
+        data[f"c_address_{idx}"] = ""
+        data[f"c_resident_{idx}"] = settings.DISPATCH_DEFAULT_RESIDENT
+        data[f"c_rnn_{idx}"] = ""
+        data[f"c_phone2_{idx}"] = ""
+        data[f"c_cellphone2_{idx}"] = ""
 
-    data["clientcounter"] = max(len(matched) - 1, 0)
+    data["clientcounter"] = str(max(len(matched) - 1, 0))
     return data
 
 
-def _build_offers_input(tour: Dict[str, Any], selection: Dict[str, Any]) -> Dict[str, Any]:
-    route = (tour.get("route") or selection.get("flight") or "").strip().upper()
-    dep_airport, arr_airport = _split_route(route)
-    if not dep_airport or not arr_airport:
-        return {}
+def _build_auth_form() -> Dict[str, str]:
+    return {
+        "agentlogin": settings.DISPATCH_AGENT_LOGIN,
+        "agentpass": settings.DISPATCH_AGENT_PASS,
+        "jump2": settings.DISPATCH_AUTH_JUMP2,
+        "submit": settings.DISPATCH_AUTH_SUBMIT,
+    }
 
+
+def _resolve_override(overrides: Dict[str, Any], key: str, fallback: str) -> str:
+    value = overrides.get(key)
+    if value is None:
+        return fallback
+    text = str(value).strip()
+    return text or fallback
+
+
+def _build_save_form_base(snapshot: Dict[str, Any]) -> Dict[str, str]:
+    tour = snapshot.get("tour") or {}
+    selection = snapshot.get("selection") or {}
+    dispatch_overrides = snapshot.get("dispatch_overrides") or {}
+    if not isinstance(dispatch_overrides, dict):
+        dispatch_overrides = {}
+
+    route = (tour.get("route") or selection.get("flight") or "").strip()
+    airport_start, airport_end = _split_route(route)
     country = (selection.get("country") or "").strip()
-    country_en = _country_en(country)
-    airline = settings.DISPATCH_DEFAULT_AIRLINE
-    date_start = (tour.get("date_start") or "").strip()
-    date_end = (tour.get("date_end") or "").strip()
-
-    data: Dict[str, Any] = {}
-
-    # Offer 0: outbound (dep → arr)
-    data["offertype_0"] = "flight"
-    data["o_date_from_0"] = date_start
-    data["o_date_to_0"] = date_start
-    data["o_airlines_0"] = airline
-    data["o_airport_0"] = arr_airport
-    data["o_country_0"] = country_en
-
-    # Offer 1: return (arr → dep)
-    data["offertype_1"] = "flight"
-    data["o_date_from_1"] = date_end
-    data["o_date_to_1"] = date_end
-    data["o_airlines_1"] = airline
-    data["o_airport_1"] = dep_airport
-    data["o_country_1"] = "Kazakhstan"
-
-    data["offercounter"] = 1  # последний индекс
-    return data
+    save_form: Dict[str, str] = {
+        "filialid": _resolve_override(dispatch_overrides, "filialid", settings.DISPATCH_FILIAL_ID),
+        "firmid": _resolve_override(dispatch_overrides, "firmid", settings.DISPATCH_FIRM_ID),
+        "firmname": _resolve_override(dispatch_overrides, "firmname", settings.DISPATCH_FIRM_NAME),
+        "q_internal": settings.DISPATCH_Q_INTERNAL,
+        "q_cost": "",
+        "q_agent_assign": settings.DISPATCH_Q_AGENT_ASSIGN,
+        "q_tourist_phone": "",
+        "q_currency": settings.DISPATCH_Q_CURRENCY,
+        "q_number": settings.DISPATCH_Q_NUMBER_TEMPLATE,
+        "q_short_number": "",
+        "q_countryen": _country_en(country),
+        "q_pretk": "",
+        "q_touragent_bin": _resolve_override(dispatch_overrides, "q_touragent_bin", settings.DISPATCH_TOURAGENT_BIN),
+        "q_touragent": _resolve_override(dispatch_overrides, "q_touragent", settings.DISPATCH_TOURAGENT_NAME),
+        "q_date_from": (tour.get("date_start") or "").strip(),
+        "q_date_to": (tour.get("date_end") or "").strip(),
+        "q_days": str(int(tour.get("days") or 0)),
+        "q_airlines": settings.DISPATCH_DEFAULT_AIRLINE,
+        "q_airport_start": airport_start,
+        "q_airport": airport_end,
+        "q_flight": "",
+        "q_flight_from": "",
+        "q_country": country,
+        "q_hotel": (selection.get("hotel") or "").strip(),
+        "q_remark": (selection.get("remark") or "").strip(),
+        "q_profit_type": "",
+        "q_profit": "",
+        "q_start_commission": "",
+        "offercounter": str(settings.DISPATCH_OFFER_COUNTER),
+        "formid": str(settings.DISPATCH_FORM_ID),
+    }
+    return save_form
 
 
 def build_partner_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
-    tour = snapshot.get("tour") or {}
-    selection = snapshot.get("selection") or {}
     results = snapshot.get("results") or {}
     matched = results.get("matched") or []
+    if not isinstance(matched, list):
+        matched = []
 
-    route = (tour.get("route") or selection.get("flight") or "").strip().upper()
-    airport_start, airport_end = _split_route(route)
-    country = (selection.get("country") or "").strip()
+    base_form = _build_save_form_base(snapshot)
+    save_items: List[Dict[str, Any]] = []
+    for index, pilgrim in enumerate(matched):
+        if not isinstance(pilgrim, dict):
+            continue
 
-    payload_input: Dict[str, Any] = {
-        "q_touragent": settings.DISPATCH_TOURAGENT_NAME,
-        "q_touragent_bin": settings.DISPATCH_TOURAGENT_BIN,
-        "q_country": country,
-        "q_countryen": _country_en(country),
-        "q_airport_start": airport_start,
-        "q_airlines": settings.DISPATCH_DEFAULT_AIRLINE,
-        "q_airport": airport_end,
-        "q_date_from": (tour.get("date_start") or "").strip(),
-        "q_date_to": (tour.get("date_end") or "").strip(),
-        "q_days": int(tour.get("days") or 0),
-        "q_remark": (selection.get("remark") or "").strip(),
-    }
-    payload_input.update(_build_clients_input(matched))
-    payload_input.update(_build_offers_input(tour, selection))
+        save_form = dict(base_form)
+        save_form.update(_build_clients_input([pilgrim]))  # 1 pilgrim per request
+        save_items.append(
+            {
+                "index": index,
+                "save": save_form,
+                "meta": {
+                    "surname": str(pilgrim.get("surname") or "").strip(),
+                    "name": str(pilgrim.get("name") or "").strip(),
+                    "document": str(pilgrim.get("document") or "").strip(),
+                },
+            }
+        )
 
     return {
-        "input": payload_input,
-        "module": settings.DISPATCH_MODULE,
-        "section": settings.DISPATCH_SECTION,
-        "object": settings.DISPATCH_OBJECT,
-        "param1": settings.DISPATCH_PARAM1,
-        "param2": settings.DISPATCH_PARAM2,
-        "formid": settings.DISPATCH_FORM_ID,
-        "agentlogin": settings.DISPATCH_AGENT_LOGIN,
-        "agentpass": settings.DISPATCH_AGENT_PASS,
-        "return": settings.DISPATCH_RETURN_FIELD,
+        "auth": _build_auth_form(),
+        "save_items": save_items,
     }

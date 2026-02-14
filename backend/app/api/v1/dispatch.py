@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,7 +16,7 @@ from db.models import (
     DispatchJob, DispatchJobStatus,
     Tour, TourStatus, Pilgrim, TourOffer,
 )
-from app.tasks.dispatch import process_dispatch_job
+from app.queue.tasks.dispatch import process_dispatch_job
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +49,14 @@ class DispatchSelectionSnapshot(BaseModel):
     remark: str = ""
 
 
+class DispatchOverridesSnapshot(BaseModel):
+    filialid: str = ""
+    firmid: str = ""
+    firmname: str = ""
+    q_touragent: str = ""
+    q_touragent_bin: str = ""
+
+
 class DispatchResultsSnapshot(BaseModel):
     matched: List[DispatchPerson] = Field(default_factory=list)
     in_sheet_not_in_manifest: List[DispatchPerson] = Field(default_factory=list)
@@ -58,6 +66,7 @@ class DispatchResultsSnapshot(BaseModel):
 class DispatchEnqueueRequest(BaseModel):
     tour: DispatchTourSnapshot
     selection: DispatchSelectionSnapshot
+    dispatch_overrides: DispatchOverridesSnapshot = Field(default_factory=DispatchOverridesSnapshot)
     results: DispatchResultsSnapshot
     manifest_filename: str = ""
     max_attempts: Optional[int] = None
@@ -78,6 +87,20 @@ class DispatchJobResponse(BaseModel):
 
 class DispatchJobsListResponse(BaseModel):
     jobs: List[DispatchJobResponse]
+
+
+class DispatchJobDebugResponse(BaseModel):
+    id: str
+    status: str
+    payload: Dict[str, Any] = Field(default_factory=dict)
+    prepared_payload: Dict[str, Any] = Field(default_factory=dict)
+    response_payload: Dict[str, Any] = Field(default_factory=dict)
+    error_message: Optional[str] = None
+    attempt_count: int
+    max_attempts: int
+    created_at: datetime
+    updated_at: datetime
+    sent_at: Optional[datetime] = None
 
 
 def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
@@ -215,6 +238,27 @@ def list_dispatch_jobs(limit: int = 20, db: Session = Depends(get_db)):
         .all()
     )
     return DispatchJobsListResponse(jobs=[_as_job_response(row) for row in rows])
+
+
+@router.get("/jobs/{job_id}/debug", response_model=DispatchJobDebugResponse)
+def get_dispatch_job_debug(job_id: str, db: Session = Depends(get_db)):
+    job = db.get(DispatchJob, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    return DispatchJobDebugResponse(
+        id=str(job.id),
+        status=job.status.value if hasattr(job.status, "value") else str(job.status),
+        payload=job.payload if isinstance(job.payload, dict) else {},
+        prepared_payload=job.prepared_payload if isinstance(job.prepared_payload, dict) else {},
+        response_payload=job.response_payload if isinstance(job.response_payload, dict) else {},
+        error_message=job.error_message,
+        attempt_count=job.attempt_count,
+        max_attempts=job.max_attempts,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        sent_at=job.sent_at,
+    )
 
 
 @router.post("/jobs/{job_id}/retry", response_model=DispatchJobResponse)

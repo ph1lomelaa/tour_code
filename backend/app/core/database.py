@@ -1,7 +1,4 @@
-"""
-Обёртка над db/ — реэкспортирует engine, session и утилиты,
-используя настройки из app.core.config.
-"""
+
 import logging
 
 from sqlalchemy import text

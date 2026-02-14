@@ -1,6 +1,3 @@
-"""
-Manifest API endpoints - парсинг манифестов и сравнение с Google Sheets
-"""
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from typing import List

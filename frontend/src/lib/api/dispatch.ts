@@ -28,6 +28,13 @@ export interface DispatchEnqueueRequest {
     flight: string;
     remark?: string;
   };
+  dispatch_overrides?: {
+    filialid?: string;
+    firmid?: string;
+    firmname?: string;
+    q_touragent?: string;
+    q_touragent_bin?: string;
+  };
   results: {
     matched: DispatchPerson[];
     in_sheet_not_in_manifest: DispatchPerson[];

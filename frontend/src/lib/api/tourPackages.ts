@@ -47,6 +47,13 @@ export interface TourPackageDetailResponse {
   hotel: string;
   remark: string;
   manifest_filename: string;
+  dispatch_overrides: {
+    filialid: string;
+    firmid: string;
+    firmname: string;
+    q_touragent: string;
+    q_touragent_bin: string;
+  };
   matched: MatchedPilgrimRow[];
   in_sheet_not_in_manifest: ComparePilgrimRow[];
   in_manifest_not_in_sheet: ComparePilgrimRow[];

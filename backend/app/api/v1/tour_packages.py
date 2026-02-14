@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
@@ -48,6 +48,14 @@ class ComparePilgrimRow(BaseModel):
     tour_name: str = ""
 
 
+class DispatchOverridesResponse(BaseModel):
+    filialid: str = ""
+    firmid: str = ""
+    firmname: str = ""
+    q_touragent: str = ""
+    q_touragent_bin: str = ""
+
+
 class TourPackageDetailResponse(BaseModel):
     id: str
     spreadsheet_id: str = ""
@@ -62,6 +70,7 @@ class TourPackageDetailResponse(BaseModel):
     hotel: str = ""
     remark: str = ""
     manifest_filename: str = ""
+    dispatch_overrides: DispatchOverridesResponse = Field(default_factory=DispatchOverridesResponse)
     matched: List[MatchedPilgrimRow]
     in_sheet_not_in_manifest: List[ComparePilgrimRow]
     in_manifest_not_in_sheet: List[ComparePilgrimRow]
@@ -168,8 +177,12 @@ def get_tour_package(tour_id: str, db: Session = Depends(get_db)):
     )
 
     payload_results = {}
+    payload_dispatch_overrides = {}
     if latest_job and isinstance(latest_job.payload, dict):
         payload_results = latest_job.payload.get("results") or {}
+        payload_dispatch_overrides = latest_job.payload.get("dispatch_overrides") or {}
+    if not isinstance(payload_dispatch_overrides, dict):
+        payload_dispatch_overrides = {}
 
     in_sheet_not_in_manifest = _parse_compare_rows(
         payload_results.get("in_sheet_not_in_manifest") if isinstance(payload_results, dict) else []
@@ -192,6 +205,13 @@ def get_tour_package(tour_id: str, db: Session = Depends(get_db)):
         hotel=tour.hotel or "",
         remark=tour.remark or "",
         manifest_filename=tour.manifest_filename or "",
+        dispatch_overrides=DispatchOverridesResponse(
+            filialid=str(payload_dispatch_overrides.get("filialid") or "").strip(),
+            firmid=str(payload_dispatch_overrides.get("firmid") or "").strip(),
+            firmname=str(payload_dispatch_overrides.get("firmname") or "").strip(),
+            q_touragent=str(payload_dispatch_overrides.get("q_touragent") or "").strip(),
+            q_touragent_bin=str(payload_dispatch_overrides.get("q_touragent_bin") or "").strip(),
+        ),
         matched=matched,
         in_sheet_not_in_manifest=in_sheet_not_in_manifest,
         in_manifest_not_in_sheet=in_manifest_not_in_sheet,

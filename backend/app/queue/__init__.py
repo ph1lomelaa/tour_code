@@ -1,4 +1,4 @@
-"""Backward-compatible Celery app import path."""
+"""Queue package (Celery app + background tasks)."""
 
 from app.queue.celery_app import celery_app
 
