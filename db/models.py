@@ -1,6 +1,6 @@
 """
 Таблицы:
-  users, tours, pilgrims, tour_offers, dispatch_jobs, audit_log, system_settings
+  users, tours, pilgrims, tour_offers, dispatch_jobs, system_settings
 """
 from datetime import datetime
 import enum
@@ -200,33 +200,7 @@ class DispatchJob(Base):
         return f"<DispatchJob {self.id} {self.status}>"
 
 
-# ── 6. audit_log ─────────────────────────────────────────
-
-class AuditLog(Base):
-    __tablename__ = "audit_log"
-
-    id = Column(String(36), primary_key=True, default=_uuid)
-    user_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"),
-                     nullable=True, index=True)
-    user_email = Column(String(255), nullable=True)
-
-    action = Column(String(100), nullable=False, index=True)
-    entity_type = Column(String(50), nullable=False, index=True)
-    entity_id = Column(String(36), nullable=True, index=True)
-
-    old_data = Column(JSON, nullable=True)
-    new_data = Column(JSON, nullable=True)
-
-    ip_address = Column(String(45), nullable=True)
-    user_agent = Column(Text, nullable=True)
-
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-
-    def __repr__(self):
-        return f"<AuditLog {self.action} {self.entity_type}>"
-
-
-# ── 7. system_settings ─────────────────────────────────
+# ── 6. system_settings ─────────────────────────────────
 
 class SystemSettings(Base):
     __tablename__ = "system_settings"

@@ -297,6 +297,40 @@ def enqueue_tour_dispatch_single(
     if not document:
         raise HTTPException(status_code=400, detail="Паспорт обязателен")
 
+    existing = (
+        db.query(Pilgrim)
+        .filter(Pilgrim.tour_id == tour.id, func.upper(func.coalesce(Pilgrim.document, "")) == document)
+        .first()
+    )
+    if existing is None:
+        existing = (
+            db.query(Pilgrim)
+            .filter(
+                Pilgrim.tour_id == tour.id,
+                Pilgrim.surname == surname,
+                Pilgrim.name == name,
+                func.upper(func.coalesce(Pilgrim.document, "")) == document,
+            )
+            .first()
+        )
+
+    if existing is None:
+        existing = Pilgrim(
+            tour_id=str(tour.id),
+            surname=surname,
+            name=name,
+            document=document or None,
+            package_name=package_name or None,
+            tour_code=None,
+        )
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
+    elif package_name and not existing.package_name:
+        existing.package_name = package_name
+        db.commit()
+        db.refresh(existing)
+
     snapshot_payload = {
         "tour": {
             "spreadsheet_id": tour.spreadsheet_id or "",
@@ -329,6 +363,7 @@ def enqueue_tour_dispatch_single(
                     "document": document,
                     "package_name": package_name,
                     "tour_name": tour_name,
+                    "pilgrim_id": str(existing.id),
                 }
             ],
             "in_sheet_not_in_manifest": [],

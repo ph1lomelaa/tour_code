@@ -10,6 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d hickmet"]
       interval: 10s
@@ -46,20 +47,18 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/hickmet
       REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
       APP_ENV: production
       DEBUG: "False"
       HOST: 0.0.0.0
       PORT: 8000
-      DISPATCH_CLIENT_NAME_TEMPLATE: Client_$$CID
+      DISPATCH_CLIENT_NAME_TEMPLATE: "Client_$$CID"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "8001:8000"
     restart: unless-stopped
     networks:
       - tour_code_network
@@ -75,10 +74,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/hickmet
       REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
       APP_ENV: production
       DEBUG: "False"
+      DISPATCH_CLIENT_NAME_TEMPLATE: "Client_$$CID"
     depends_on:
       postgres:
         condition: service_healthy

@@ -130,21 +130,21 @@ export function Dashboard() {
             <GlassStat
               value={stats.total_tours}
               label="Всего туров"
-              hint="Пока нет активных туров"
+              hint="Создано в системе"
               icon={<Plane className="w-5 h-5" />}
               isLoading={isLoading}
             />
             <GlassStat
               value={stats.total_pilgrims}
               label="Активных паломников"
-              hint="Ожидание регистрации"
+              hint="С валидным паспортом"
               icon={<Users className="w-5 h-5" />}
               isLoading={isLoading}
             />
             <GlassStat
               value={stats.sent_jobs}
               label="Успешных отправок"
-              hint="Начните с первого тура"
+              hint="Завершены без ошибок"
               icon={<CheckCircle2 className="w-5 h-5" />}
               isLoading={isLoading}
             />
@@ -197,7 +197,7 @@ export function Dashboard() {
               ) : recentTours.length === 0 ? (
                 <EmptyState
                   icon={<Plane className="w-8 h-8" />}
-                  text="Пока нет запланированных туров"
+                  text=""
                   linkTo="/create"
                   linkLabel="Создать первый тур"
                 />

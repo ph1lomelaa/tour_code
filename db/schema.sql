@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS pilgrims (
     name            VARCHAR(100) NOT NULL,
     document        VARCHAR(50),                   -- c_doc_number
     package_name    VARCHAR(255),                  -- "17.02-24.02 NIYET"
-    tour_code       VARCHAR(64),
+    tour_code       VARCHAR(64),                   -- код из QAMQOR
     created_at      TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -99,11 +99,8 @@ CREATE INDEX IF NOT EXISTS ix_pilgrims_tour       ON pilgrims (tour_id);
 CREATE INDEX IF NOT EXISTS ix_pilgrims_surname    ON pilgrims (surname);
 CREATE INDEX IF NOT EXISTS ix_pilgrims_name       ON pilgrims (name);
 CREATE INDEX IF NOT EXISTS ix_pilgrims_document   ON pilgrims (document);
-CREATE INDEX IF NOT EXISTS ix_pilgrims_tour_code  ON pilgrims (tour_code);
-CREATE UNIQUE INDEX IF NOT EXISTS ux_pilgrims_document_norm
-    ON pilgrims (UPPER(TRIM(document)))
-    WHERE document IS NOT NULL AND TRIM(document) <> '';
 CREATE INDEX IF NOT EXISTS ix_pilgrims_package    ON pilgrims (package_name);
+CREATE INDEX IF NOT EXISTS ix_pilgrims_tour_code  ON pilgrims (tour_code);
 
 
 -- ── 4. tour_offers (сегменты перелётов) ─────────────────
@@ -158,34 +155,7 @@ CREATE INDEX IF NOT EXISTS ix_dj_sent     ON dispatch_jobs (sent_at);
 CREATE INDEX IF NOT EXISTS ix_dj_celery   ON dispatch_jobs (celery_task_id);
 
 
--- ── 6. audit_log ────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS audit_log (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id         UUID REFERENCES users(id) ON DELETE SET NULL,
-    user_email      VARCHAR(255),
-
-    action          VARCHAR(100) NOT NULL,
-    entity_type     VARCHAR(50) NOT NULL,
-    entity_id       UUID,
-
-    old_data        JSONB,
-    new_data        JSONB,
-
-    ip_address      VARCHAR(45),
-    user_agent      TEXT,
-
-    created_at      TIMESTAMP NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS ix_al_user     ON audit_log (user_id);
-CREATE INDEX IF NOT EXISTS ix_al_action   ON audit_log (action);
-CREATE INDEX IF NOT EXISTS ix_al_entity   ON audit_log (entity_type);
-CREATE INDEX IF NOT EXISTS ix_al_eid      ON audit_log (entity_id);
-CREATE INDEX IF NOT EXISTS ix_al_created  ON audit_log (created_at);
-
-
--- ── 7. system_settings ─────────────────────────────────
+-- ── 6. system_settings ─────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS system_settings (
     key         VARCHAR(100) PRIMARY KEY,

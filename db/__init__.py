@@ -6,7 +6,6 @@ from .models import (
     Pilgrim,
     TourOffer,
     DispatchJob, DispatchJobStatus,
-    AuditLog,
     SystemSettings,
 )
 
@@ -23,6 +22,5 @@ __all__ = [
     "Pilgrim",
     "TourOffer",
     "DispatchJob", "DispatchJobStatus",
-    "AuditLog",
     "SystemSettings",
 ]

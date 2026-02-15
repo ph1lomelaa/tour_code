@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime, date
 from typing import Any, Dict, List, Tuple
 
 from app.core.config import settings
@@ -10,6 +9,17 @@ from app.services.document_rules import normalize_document
 COUNTRY_EN_MAP = {
     "Саудовская Аравия": "Saudi Arabia",
 }
+
+
+def _drop_empty_values(values: Dict[str, Any]) -> Dict[str, Any]:
+    cleaned: Dict[str, Any] = {}
+    for key, value in values.items():
+        if value is None:
+            continue
+        if isinstance(value, str) and value == "":
+            continue
+        cleaned[key] = value
+    return cleaned
 
 
 def _resolve_touragent(snapshot: Dict[str, Any]) -> Tuple[str, str]:
@@ -35,6 +45,17 @@ def _resolve_touragent(snapshot: Dict[str, Any]) -> Tuple[str, str]:
     return override_name, override_bin
 
 
+def _resolve_company(snapshot: Dict[str, Any]) -> Tuple[str, str, str]:
+    overrides = snapshot.get("dispatch_overrides") or {}
+    if not isinstance(overrides, dict):
+        overrides = {}
+
+    filialid = str(overrides.get("filialid") or "").strip() or str(settings.DISPATCH_FILIAL_ID or "").strip()
+    firmid = str(overrides.get("firmid") or "").strip() or str(settings.DISPATCH_FIRM_ID or "").strip()
+    firmname = str(overrides.get("firmname") or "").strip() or str(settings.DISPATCH_FIRM_NAME or "").strip()
+    return filialid, firmid, firmname
+
+
 def _country_en(value: str) -> str:
     text = (value or "").strip()
     if not text:
@@ -54,12 +75,27 @@ def _build_base_input(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     tour = snapshot.get("tour") or {}
     selection = snapshot.get("selection") or {}
     q_touragent, q_touragent_bin = _resolve_touragent(snapshot)
+    filialid, firmid, firmname = _resolve_company(snapshot)
 
     route = (tour.get("route") or selection.get("flight") or "").strip()
     airport_start, airport_end = _split_route(route)
     country = (selection.get("country") or "").strip()
 
+    q_date_from = (tour.get("date_start") or "").strip()
+    q_date_to = (tour.get("date_end") or "").strip()
+
     return {
+        "filialid": filialid,
+        "firmid": firmid,
+        "firmname": firmname,
+        "q_internal": str(settings.DISPATCH_Q_INTERNAL),
+        "q_cost": "",
+        "q_agent_assign": str(settings.DISPATCH_Q_AGENT_ASSIGN),
+        "q_tourist_phone": "",
+        "q_currency": str(settings.DISPATCH_Q_CURRENCY),
+        "q_number": str(settings.DISPATCH_Q_NUMBER_TEMPLATE),
+        "q_short_number": "",
+        "q_pretk": "",
         "q_touragent": q_touragent,
         "q_touragent_bin": q_touragent_bin,
         "q_country": country,
@@ -67,27 +103,45 @@ def _build_base_input(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         "q_airlines": settings.DISPATCH_DEFAULT_AIRLINE,
         "q_airport_start": airport_start,
         "q_airport": airport_end,
-        "q_date_from": (tour.get("date_start") or "").strip(),
-        "q_date_to": (tour.get("date_end") or "").strip(),
-        "q_days": int(tour.get("days") or 0),
-        "q_remark": "",
+        "q_date_from": q_date_from,
+        "q_date_to": q_date_to,
+        "q_days": str(int(tour.get("days") or 0)),
+        "q_flight": "",
+        "q_flight_from": "",
+        "q_hotel": (selection.get("hotel") or "").strip(),
+        "q_remark": (selection.get("remark") or "").strip(),
+        "q_profit_type": "",
+        "q_profit": "",
+        "q_start_commission": "",
+        "offercounter": str(settings.DISPATCH_OFFER_COUNTER),
+        "formid": str(settings.DISPATCH_FORM_ID),
     }
 
 
 def _build_client_block(pilgrim: Dict[str, Any]) -> Dict[str, Any]:
     doc = normalize_document((pilgrim.get("document") or "").strip().upper())
+    surname = str(pilgrim.get("surname") or "").strip().upper()
 
     return {
         "clientcounter": 0,
         "c_name_0": settings.DISPATCH_CLIENT_NAME_TEMPLATE,
+        "c_nmeng_0": surname,
         "c_borned_0": settings.DISPATCH_DEFAULT_BIRTH_DATE,
+        "c_doc_type_0": settings.DISPATCH_DEFAULT_DOC_TYPE,
         "c_doc_date_0": settings.DISPATCH_DEFAULT_DOC_DATE,
         "c_doc_number_0": doc,
         "c_doc_production_0": settings.DISPATCH_DEFAULT_DOC_PRODUCTION,
+        "c_bin_0": "",
+        "c_sex_0": "",
+        "c_address_0": "",
+        "c_resident_0": settings.DISPATCH_DEFAULT_RESIDENT,
+        "c_rnn_0": "",
+        "c_phone2_0": "",
+        "c_cellphone2_0": "",
     }
 
 
-def _build_envelope(single_input: Dict[str, Any]) -> Dict[str, Any]:
+def _build_json_envelope(single_input: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "input": single_input,
         "module": settings.DISPATCH_MODULE,
@@ -109,26 +163,56 @@ def build_partner_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         matched = []
 
     base_input = _build_base_input(snapshot)
+    use_partner_form_flow = bool(settings.DISPATCH_AUTH_URL and settings.DISPATCH_SAVE_URL)
 
     json_items: List[Dict[str, Any]] = []
     for index, pilgrim in enumerate(matched):
         if not isinstance(pilgrim, dict):
             continue
 
-        single_input = dict(base_input)
-        single_input.update(_build_client_block(pilgrim))
+        normalized_document = normalize_document(str(pilgrim.get("document") or "").strip())
+        if not normalized_document:
+            # Skip invalid/empty passport numbers to avoid partner-side mandatory-field errors.
+            continue
 
-        payload = _build_envelope(single_input)
+        single_input = dict(base_input)
+        single_input.update(_build_client_block({**pilgrim, "document": normalized_document}))
+
+        if use_partner_form_flow:
+            payload = single_input
+        else:
+            # test.fondkamkor.kz json endpoint is strict for empty values.
+            payload = _build_json_envelope(_drop_empty_values(single_input))
         json_items.append(
             {
                 "index": index,
                 "payload": payload,
                 "meta": {
+                    "pilgrim_id": str(pilgrim.get("pilgrim_id") or "").strip(),
                     "surname": str(pilgrim.get("surname") or "").strip(),
                     "name": str(pilgrim.get("name") or "").strip(),
-                    "document": normalize_document(str(pilgrim.get("document") or "").strip()),
+                    "document": normalized_document,
                 },
             }
         )
 
-    return {"json_items": json_items}
+    result: Dict[str, Any] = {
+        "mode": "partner_form" if use_partner_form_flow else "json_envelope",
+        "json_items": json_items,
+    }
+
+    if use_partner_form_flow:
+        result["auth"] = {
+            "url": settings.DISPATCH_AUTH_URL,
+            "payload": {
+                "agentlogin": settings.DISPATCH_AGENT_LOGIN,
+                "agentpass": settings.DISPATCH_AGENT_PASS,
+                "jump2": settings.DISPATCH_AUTH_JUMP2,
+                "submit": settings.DISPATCH_AUTH_SUBMIT,
+            },
+        }
+        result["save"] = {
+            "url": settings.DISPATCH_SAVE_URL,
+        }
+
+    return result

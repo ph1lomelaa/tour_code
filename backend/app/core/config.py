@@ -56,7 +56,10 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # Dispatch
+    DISPATCH_DRY_RUN: bool = False
     DISPATCH_TARGET_URL: str = ""  # http://test.fondkamkor.kz или https://fondkamkor.kz
+    DISPATCH_AUTH_URL: str = ""
+    DISPATCH_SAVE_URL: str = ""
     DISPATCH_REQUEST_TIMEOUT_SECONDS: int = 30
     DISPATCH_MAX_ATTEMPTS: int = 5
     DISPATCH_RETRY_DELAY_SECONDS: int = 60
@@ -80,9 +83,30 @@ class Settings(BaseSettings):
     DISPATCH_TOURAGENT_BIN: str = "240340000277"
     DISPATCH_DEFAULT_AIRLINE: str = "KC"
     DISPATCH_DEFAULT_DOC_PRODUCTION: str = "Ministry Of Internal Affairs"
+    DISPATCH_DEFAULT_DOC_TYPE: str = "паспорт"
     DISPATCH_DEFAULT_DOC_DATE: str = ""
+    DISPATCH_DEFAULT_RESIDENT: str = "резидент"
     DISPATCH_DEFAULT_BIRTH_DATE: str = "01.01.1970"
     DISPATCH_CLIENT_NAME_TEMPLATE: str = "Client_$CID"
+    DISPATCH_FILIAL_ID: str = ""
+    DISPATCH_FIRM_ID: str = ""
+    DISPATCH_FIRM_NAME: str = ""
+    DISPATCH_Q_INTERNAL: str = "1"
+    DISPATCH_Q_AGENT_ASSIGN: str = "0"
+    DISPATCH_Q_CURRENCY: str = "MRP"
+    DISPATCH_Q_NUMBER_TEMPLATE: str = (
+        "[tmpl_var query.firm.rowid]"
+        "[tmpl_var substr(params_hash.q_countryen,0,2)]"
+        "[tmpl_var substr(params_hash.q_date_from,3,1)]"
+        "[tmpl_var substr(params_hash.q_date_from,5,2)]"
+        "[tmpl_var substr(params_hash.q_date_from,8,2)]-[tmpl_var query.id]"
+    )
+    DISPATCH_OFFER_COUNTER: str = "0"
+    DISPATCH_AUTH_JUMP2: str = "/Voucher/partner/home"
+    DISPATCH_AUTH_SUBMIT: str = "Вход"
+    DISPATCH_ORIGIN: str = ""
+    DISPATCH_AUTH_REFERER: str = ""
+    DISPATCH_SAVE_REFERER: str = ""
 
     # HTTP
     DISPATCH_USER_AGENT: str = (

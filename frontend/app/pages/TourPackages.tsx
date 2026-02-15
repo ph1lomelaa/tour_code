@@ -84,7 +84,8 @@ export function TourPackages() {
     setError(null);
     try {
       const response = await listTourPackages();
-      setTourPackages(response.items);
+      const items = Array.isArray(response?.items) ? response.items : [];
+      setTourPackages(items);
     } catch (e) {
       console.error("Error loading tour packages:", e);
       setTourPackages([]);
@@ -123,9 +124,10 @@ export function TourPackages() {
     loadTourPackages();
   }, []);
 
-  const filteredPackages = useMemo(() => {
-    if (!searchDate) return tourPackages;
-    return tourPackages.filter((pkg) => {
+  const filteredPackages = useMemo<TourPackageSummary[]>(() => {
+    const source = Array.isArray(tourPackages) ? tourPackages : [];
+    if (!searchDate) return source;
+    return source.filter((pkg) => {
       const startIso = toIsoDate(pkg.date_start);
       const endIso = toIsoDate(pkg.date_end);
       return startIso.includes(searchDate) || endIso.includes(searchDate);
@@ -263,7 +265,7 @@ export function TourPackages() {
   const appendMatchedRow = (row: MatchedPilgrimRow) => {
     setMatchedRows((prev) => {
       const normalizedDoc = normalizeDocument(row.document);
-      const exists = prev.some((p) => {
+      const existingIndex = prev.findIndex((p) => {
         if (normalizeDocument(p.document) && normalizedDoc) {
           return normalizeDocument(p.document) === normalizedDoc;
         }
@@ -272,7 +274,23 @@ export function TourPackages() {
           normalizeNameValue(p.name) === normalizeNameValue(row.name)
         );
       });
-      if (exists) return prev;
+
+      if (existingIndex >= 0) {
+        return prev.map((item, index) =>
+          index === existingIndex
+            ? {
+                ...item,
+                ...row,
+                surname: row.surname || item.surname,
+                name: row.name || item.name,
+                document: row.document || item.document,
+                package_name: row.package_name || item.package_name,
+                tour_code: row.tour_code || item.tour_code,
+              }
+            : item
+        );
+      }
+
       return [...prev, row];
     });
   };
@@ -533,7 +551,7 @@ export function TourPackages() {
                               <TableRow key={row.id}>
                                 <TableCell>{idx + 1}</TableCell>
                                 <TableCell>{row.surname}</TableCell>
-                                <TableCell>{row.name}</TableCell>
+                                <TableCell>{row.name || "-"}</TableCell>
                                 <TableCell>{row.document || "-"}</TableCell>
                                 <TableCell>{row.package_name || "-"}</TableCell>
                                 <TableCell>{row.tour_code || "-"}</TableCell>
@@ -582,7 +600,9 @@ export function TourPackages() {
                                       {renderEditableCell("sheet", idx, "document", row.document || "", "text-[#6B5435]")}
                                     </TableCell>
                                     <TableCell>{row.package_name || "-"}</TableCell>
-                                    <TableCell>-</TableCell>
+                                    <TableCell>
+                                      {hasDocument ? "-" : "Нет паспорта (ожидает)"}
+                                    </TableCell>
                                     <TableCell>
                                       {hasDocument && hasSurname ? (
                                         <Button
@@ -645,7 +665,9 @@ export function TourPackages() {
                                       {renderEditableCell("manifest", idx, "document", row.document || "", "text-[#6B5435]")}
                                     </TableCell>
                                     <TableCell>{row.package_name || "-"}</TableCell>
-                                    <TableCell>-</TableCell>
+                                    <TableCell>
+                                      {hasDocument ? "-" : "Нет паспорта (ожидает)"}
+                                    </TableCell>
                                     <TableCell>
                                       {hasDocument && hasSurname ? (
                                         <Button
