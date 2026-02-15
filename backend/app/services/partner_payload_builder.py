@@ -12,6 +12,29 @@ COUNTRY_EN_MAP = {
 }
 
 
+def _resolve_touragent(snapshot: Dict[str, Any]) -> Tuple[str, str]:
+    overrides = snapshot.get("dispatch_overrides") or {}
+    if not isinstance(overrides, dict):
+        overrides = {}
+
+    default_name = (settings.DISPATCH_TOURAGENT_NAME or "").strip()
+    default_bin = (settings.DISPATCH_TOURAGENT_BIN or "").strip()
+
+    override_name = str(overrides.get("q_touragent") or "").strip()
+    override_bin = str(overrides.get("q_touragent_bin") or "").strip()
+
+    # HICKMET preset is protected: always use backend-configured values.
+    normalized_name = override_name.upper()
+    if (
+        not override_name
+        or normalized_name in {"HICKMET", "HICKMET PREMIUM", default_name.upper()}
+    ):
+        return default_name, default_bin
+
+    # Any non-HICKMET value from frontend is allowed.
+    return override_name, override_bin
+
+
 def _country_en(value: str) -> str:
     text = (value or "").strip()
     if not text:
@@ -30,14 +53,15 @@ def _split_route(route: str) -> Tuple[str, str]:
 def _build_base_input(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     tour = snapshot.get("tour") or {}
     selection = snapshot.get("selection") or {}
+    q_touragent, q_touragent_bin = _resolve_touragent(snapshot)
 
     route = (tour.get("route") or selection.get("flight") or "").strip()
     airport_start, airport_end = _split_route(route)
     country = (selection.get("country") or "").strip()
 
     return {
-        "q_touragent": settings.DISPATCH_TOURAGENT_NAME,
-        "q_touragent_bin": settings.DISPATCH_TOURAGENT_BIN,
+        "q_touragent": q_touragent,
+        "q_touragent_bin": q_touragent_bin,
         "q_country": country,
         "q_countryen": _country_en(country),
         "q_airlines": settings.DISPATCH_DEFAULT_AIRLINE,

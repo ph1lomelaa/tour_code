@@ -1,0 +1,30 @@
+{
+  "input": {
+    "q_touragent": "HICKMET PREMIUM",
+    "q_touragent_bin": "240340000277",
+    "q_country": "Саудовская Аравия",
+    "q_countryen": "Saudi Arabia",
+    "q_airport_start": "ALA",
+    "q_airlines": "KC",
+    "q_airport": "JED",
+    "q_date_from": "22.02.2026",
+    "q_date_to": "01.03.2026",
+    "q_days": 8,
+    "q_remark": "single test",
+    "clientcounter": 0,
+    "c_name_0": "Client_$CID",
+    "c_borned_0": "01.01.1970",
+    "c_doc_date_0": "02.11.2016",
+    "c_doc_number_0": "N17945750",
+    "c_doc_production_0": "Ministry Of Internal Affairs"
+  },
+  "module": "voucher",
+  "section": "partner",
+  "object": "queries",
+  "param1": "163",
+  "param2": "save",
+  "formid": 163,
+  "agentlogin": "test",
+  "agentpass": "test",
+  "return": "q_number"
+}

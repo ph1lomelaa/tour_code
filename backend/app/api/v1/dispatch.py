@@ -168,6 +168,7 @@ def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
 
 
 def _as_job_response(job: DispatchJob) -> DispatchJobResponse:
+    raw_payload = job.payload if isinstance(job.payload, dict) else {}
     prepared_payload = job.prepared_payload if isinstance(job.prepared_payload, dict) else {}
     response_payload = job.response_payload if isinstance(job.response_payload, dict) else {}
 
@@ -187,18 +188,35 @@ def _as_job_response(job: DispatchJob) -> DispatchJobResponse:
     items_sent = _to_int(progress_raw.get("sent_items"))
 
     if items_total <= 0:
+        # Fallback 1: counters that worker writes during sending.
+        items_total = max(items_total, _to_int(response_payload.get("json_items_total")))
+        items_sent = max(items_sent, _to_int(response_payload.get("json_items_sent")))
+        items_total = max(items_total, _to_int(response_payload.get("save_items_total")))
+        items_sent = max(items_sent, _to_int(response_payload.get("save_items_sent")))
+
+        # Fallback 2: original enqueue snapshot.
+        payload_results = raw_payload.get("results") if isinstance(raw_payload, dict) else {}
+        if isinstance(payload_results, dict):
+            payload_matched = payload_results.get("matched")
+            if isinstance(payload_matched, list):
+                items_total = max(items_total, len(payload_matched))
+
+        # Fallback 3: prebuilt payload shape by mode.
         if platform_mode == "test":
-            items_total = len(prepared_payload.get("json_items") or [])
+            items_total = max(items_total, len(prepared_payload.get("json_items") or []))
             items_sent = max(items_sent, _to_int(response_payload.get("json_items_sent")))
         elif platform_mode == "prod":
-            items_total = len(prepared_payload.get("save_items") or [])
+            items_total = max(items_total, len(prepared_payload.get("save_items") or []))
             items_sent = max(items_sent, _to_int(response_payload.get("save_items_sent")))
         elif platform_mode == "dry_run":
-            items_total = _to_int(response_payload.get("items_total"))
-            items_sent = items_total
+            items_total = max(items_total, _to_int(response_payload.get("items_total")))
+            items_sent = max(items_sent, items_total)
 
-    if job.status == DispatchJobStatus.SENT and items_total > 0:
-        items_sent = max(items_sent, items_total)
+    if job.status == DispatchJobStatus.SENT:
+        if items_total <= 0 and items_sent > 0:
+            items_total = items_sent
+        if items_total > 0:
+            items_sent = max(items_sent, items_total)
 
     if items_total > 0:
         progress_percent = int(round((items_sent / items_total) * 100))
