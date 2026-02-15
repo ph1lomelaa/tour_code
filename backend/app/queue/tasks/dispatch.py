@@ -145,10 +145,15 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
         responses: list[Dict[str, Any]] = []
         total_items = len(json_items)
 
+        job.prepared_payload = prepared
         job.response_payload = {
             "target_url": target_url,
             "json_items_total": total_items,
             "json_items_sent": 0,
+            "progress": {
+                "total_items": total_items,
+                "sent_items": 0,
+            },
         }
         db.commit()
 
@@ -185,6 +190,10 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                     "json_items_total": total_items,
                     "json_items_sent": len(responses),
                     "last_sent_index": idx,
+                    "progress": {
+                        "total_items": total_items,
+                        "sent_items": len(responses),
+                    },
                 }
                 db.commit()
 
@@ -197,6 +206,10 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
             "json_items_total": total_items,
             "json_items_sent": len(responses),
             "json_items": responses,
+            "progress": {
+                "total_items": total_items,
+                "sent_items": len(responses),
+            },
         }
         db.commit()
 

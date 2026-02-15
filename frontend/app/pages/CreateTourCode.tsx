@@ -782,6 +782,12 @@ export function CreateTourCode() {
   };
 
   const handleManifestUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedTour) {
+      setManifestError("Сначала выберите тур");
+      event.target.value = "";
+      return;
+    }
+
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -1391,27 +1397,40 @@ export function CreateTourCode() {
                 Парсинг манифеста
               </h3>
 
-              <div className="mb-4">
-                <label className="block mb-2 text-sm text-[#2B2318]">
-                  Данные манифеста
-                </label>
-                <div
-                  className="mt-3 border-2 border-dashed border-white/60 rounded-lg p-6 text-center cursor-pointer hover:border-[#B8985F] hover:bg-white/30 transition-all"
-                  onClick={() => document.getElementById('manifest-file-input')?.click()}
-                >
-                  <input
-                    id="manifest-file-input"
-                    type="file"
-                    accept=".xlsx,.xls,.csv"
-                    onChange={handleManifestUpload}
-                    className="hidden"
-                  />
-                  <Upload className="w-8 h-8 mx-auto mb-2 text-[#B8985F]" />
-                  {manifestFile ? (
-                    <p className="text-sm text-[#2B2318]">{manifestFile.name}</p>
-                  ) : (
-                    <>
-                      <p className="text-sm text-[#2B2318] font-medium">Нажмите для загрузки файла</p>
+	              <div className="mb-4">
+	                <label className="block mb-2 text-sm text-[#2B2318]">
+	                  Данные манифеста
+	                </label>
+	                <div
+	                  className={`mt-3 border-2 border-dashed rounded-lg p-6 text-center transition-all ${
+	                    selectedTour
+	                      ? "border-white/60 cursor-pointer hover:border-[#B8985F] hover:bg-white/30"
+	                      : "border-[#E5DDD0] cursor-not-allowed bg-[#F5F1EA]/70 opacity-70"
+	                  }`}
+	                  onClick={() => {
+	                    if (!selectedTour || isUploadingManifest || isComparing) return;
+	                    document.getElementById('manifest-file-input')?.click();
+	                  }}
+	                >
+	                  <input
+	                    id="manifest-file-input"
+	                    type="file"
+	                    accept=".xlsx,.xls,.csv"
+	                    disabled={!selectedTour || isUploadingManifest || isComparing}
+	                    onChange={handleManifestUpload}
+	                    className="hidden"
+	                  />
+	                  <Upload className="w-8 h-8 mx-auto mb-2 text-[#B8985F]" />
+	                  {!selectedTour ? (
+	                    <>
+	                      <p className="text-sm text-[#2B2318] font-medium">Сначала выберите тур</p>
+	                      <p className="text-xs text-[#6B5435] mt-1">После выбора тура станет доступна загрузка манифеста</p>
+	                    </>
+	                  ) : manifestFile ? (
+	                    <p className="text-sm text-[#2B2318]">{manifestFile.name}</p>
+	                  ) : (
+	                    <>
+	                      <p className="text-sm text-[#2B2318] font-medium">Нажмите для загрузки файла</p>
                       <p className="text-xs text-[#6B5435] mt-1">Поддерживаются форматы: .xlsx, .xls, .csv</p>
                     </>
                   )}
@@ -1599,7 +1618,7 @@ export function CreateTourCode() {
             <div className="flex gap-4 pt-4 border-t border-[#E5DDD0]">
               <Button
                 onClick={handleCreateTourCode}
-                disabled={!selectedDateShort || !selectedFlight || isQueueingDispatch}
+                disabled={!selectedTour || !selectedDateShort || !selectedFlight || isQueueingDispatch}
                 className="bg-gradient-to-r from-[#B8985F] to-[#A88952] hover:from-[#A88952] hover:to-[#8B6F47] text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />

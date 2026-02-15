@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     DISPATCH_REQUEST_TIMEOUT_SECONDS: int = 30
     DISPATCH_MAX_ATTEMPTS: int = 5
     DISPATCH_RETRY_DELAY_SECONDS: int = 60
+    DISPATCH_QUEUE_NAME: str = "tour_dispatch"
 
     # External payload constants
     DISPATCH_MODULE: str = "voucher"
