@@ -7,6 +7,7 @@ import re
 from typing import List, Dict, Optional
 import pandas as pd
 from io import BytesIO
+from app.services.document_rules import normalize_document
 
 logger = logging.getLogger(__name__)
 
@@ -121,12 +122,8 @@ class ManifestParser:
         return parts[0], " ".join(parts[1:])
 
     def _normalize_document(self, value: str) -> str:
-        cleaned = re.sub(r'[^\w]', '', value.upper().strip())
-        if cleaned in {"DOCUMENT", "DOCUMENTNUMBER", "PASSPORT", "IIN", "ИИН"}:
-            return ""
-        if cleaned.isdigit() and len(cleaned) < 7:
-            return ""
-        return cleaned
+        cleaned = re.sub(r"[^\w]", "", value.upper().strip())
+        return normalize_document(cleaned)
 
     def _normalize_iin(self, value: str) -> str:
         value = value.strip().replace(" ", "")

@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 from typing import List, Dict, Optional, Tuple
 import re
 from app.google_sheet_parser.google_sheets_service import google_sheets_service
+from app.services.document_rules import normalize_document
 
 logger = logging.getLogger(__name__)
 PACKAGE_HEADER_RE = re.compile(r'\d{1,2}\.\d{1,2}\s*[-–]\s*\d{1,2}\.\d{1,2}')
@@ -439,17 +440,7 @@ class SheetPilgrimParser:
 
     def _normalize_document(self, document: str) -> str:
         cleaned = self._clean_document(document).upper()
-        if not cleaned:
-            return ""
-
-        if cleaned in {"DOCUMENT", "DOCUMENTNUMBER", "PASSPORT", "IIN", "ИИН"}:
-            return ""
-
-        # Слишком короткие числовые значения обычно служебные (например, 6.0 -> 60)
-        if cleaned.isdigit() and len(cleaned) < 7:
-            return ""
-
-        return cleaned
+        return normalize_document(cleaned)
 
     def _clean_iin(self, value: str) -> str:
         value = str(value or "").strip().replace(" ", "")

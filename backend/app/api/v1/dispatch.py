@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.services.document_rules import normalize_document
 from db.models import (
     DispatchJob, DispatchJobStatus,
     Tour, TourStatus, Pilgrim, TourOffer,
@@ -138,7 +139,7 @@ def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
                 tour_id=tour.id,
                 surname=(p.surname or "").strip().upper(),
                 name=(p.name or "").strip().upper(),
-                document=(p.document or "").strip().upper() or None,
+                document=normalize_document((p.document or "").strip().upper()) or None,
                 package_name=p.package_name or None,
                 tour_code=None,
             )

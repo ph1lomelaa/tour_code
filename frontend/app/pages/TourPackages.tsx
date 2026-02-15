@@ -30,8 +30,13 @@ const toIsoDate = (dateValue: string): string => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-const normalizeDocument = (value?: string) =>
-  (value || "").toUpperCase().replace(/[^0-9A-ZА-ЯЁ_]/g, "");
+const normalizeDocument = (value?: string) => {
+  const cleaned = (value || "").toUpperCase().replace(/[^0-9A-ZА-ЯЁ_]/g, "");
+  if (!cleaned) return "";
+  const digits = cleaned.replace(/\D/g, "");
+  if (!digits || !digits.startsWith("1")) return "";
+  return cleaned;
+};
 
 const normalizeNameValue = (value?: string) =>
   (value || "").trim().toUpperCase();
@@ -126,6 +131,17 @@ export function TourPackages() {
       return startIso.includes(searchDate) || endIso.includes(searchDate);
     });
   }, [searchDate, tourPackages]);
+
+  useEffect(() => {
+    if (!selectedPackageId) return;
+    setTourPackages((prev) =>
+      prev.map((pkg) =>
+        pkg.id === selectedPackageId
+          ? { ...pkg, pilgrims_count: matchedRows.length }
+          : pkg
+      )
+    );
+  }, [matchedRows.length, selectedPackageId]);
 
   const handleSelectPackage = async (tourId: string) => {
     setSelectedPackageId(tourId);

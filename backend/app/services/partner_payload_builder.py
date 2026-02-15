@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Tuple
 
 from app.core.config import settings
+from app.services.document_rules import normalize_document
 
 
 COUNTRY_EN_MAP = {
@@ -76,7 +77,7 @@ def _pilgrim_meta(row: Dict[str, Any]) -> Dict[str, str]:
     return {
         "surname": str(row.get("surname") or "").strip(),
         "name": str(row.get("name") or "").strip(),
-        "document": str(row.get("document") or "").strip(),
+        "document": normalize_document(str(row.get("document") or "").strip()),
     }
 
 
@@ -85,7 +86,7 @@ def _build_clients_input_prod(matched: List[Dict[str, Any]]) -> Dict[str, str]:
     for idx, row in enumerate(matched):
         surname = (row.get("surname") or "").strip().upper()
         name = (row.get("name") or "").strip().upper()
-        doc = (row.get("document") or "").strip().upper()
+        doc = normalize_document((row.get("document") or "").strip().upper())
         client_name = settings.DISPATCH_CLIENT_NAME_TEMPLATE or f"Client_{idx + 1}"
 
         data[f"c_name_{idx}"] = client_name
@@ -110,7 +111,7 @@ def _build_clients_input_prod(matched: List[Dict[str, Any]]) -> Dict[str, str]:
 def _build_clients_input_test(matched: List[Dict[str, Any]]) -> Dict[str, str]:
     data: Dict[str, str] = {}
     for idx, row in enumerate(matched):
-        doc = (row.get("document") or "").strip().upper()
+        doc = normalize_document((row.get("document") or "").strip().upper())
         client_name = settings.DISPATCH_CLIENT_NAME_TEMPLATE or f"Client_{idx + 1}"
 
         data[f"c_name_{idx}"] = client_name

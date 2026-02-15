@@ -5,6 +5,7 @@ import logging
 
 from app.google_sheet_parser.manifest_parser import manifest_parser
 from app.google_sheet_parser.sheet_pilgrim_parser import sheet_pilgrim_parser
+from app.services.document_rules import normalize_document
 
 logger = logging.getLogger(__name__)
 
@@ -86,17 +87,21 @@ async def compare_with_sheet(request: CompareRequest):
         )
 
         # Создаём множества для быстрого поиска (по номеру паспорта)
-        manifest_docs = {p.document.upper() for p in request.manifest_pilgrims if p.document}
+        manifest_docs = {
+            normalize_document(p.document.upper())
+            for p in request.manifest_pilgrims
+            if normalize_document(p.document.upper())
+        }
         sheet_docs_map = {
-            p["document"].upper(): p
+            normalize_document(p["document"].upper()): p
             for p in sheet_pilgrims
-            if p.get("document")
+            if normalize_document((p.get("document") or "").upper())
         }
 
         # Те кто есть и в манифесте и в таблице
         matched = []
         for mp in request.manifest_pilgrims:
-            doc = mp.document.upper()
+            doc = normalize_document(mp.document.upper())
             if doc in sheet_docs_map:
                 sp = sheet_docs_map[doc]
                 matched.append(Pilgrim(
@@ -122,7 +127,7 @@ async def compare_with_sheet(request: CompareRequest):
         # Есть в манифесте, но НЕТ в таблице
         in_manifest_not_in_sheet = []
         for mp in request.manifest_pilgrims:
-            doc = mp.document.upper()
+            doc = normalize_document(mp.document.upper())
             if not doc or doc not in sheet_docs_map:
                 in_manifest_not_in_sheet.append(mp)
 

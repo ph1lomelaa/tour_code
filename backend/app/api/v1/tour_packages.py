@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.config import settings
 from app.queue.tasks.dispatch import process_dispatch_job
+from app.services.document_rules import normalize_document
 from db.models import DispatchJob, DispatchJobStatus, Pilgrim, Tour
 
 
@@ -128,7 +129,7 @@ def _parse_compare_rows(raw_rows: object) -> List[ComparePilgrimRow]:
             ComparePilgrimRow(
                 surname=str(raw.get("surname") or "").strip().upper(),
                 name=str(raw.get("name") or "").strip().upper(),
-                document=str(raw.get("document") or "").strip().upper(),
+                document=normalize_document(str(raw.get("document") or "").strip().upper()),
                 package_name=str(raw.get("package_name") or "").strip(),
                 tour_name=str(raw.get("tour_name") or "").strip(),
             )
@@ -209,7 +210,7 @@ def get_tour_package(tour_id: str, db: Session = Depends(get_db)):
             id=str(row.id),
             surname=row.surname,
             name=row.name,
-            document=row.document or "",
+            document=normalize_document(row.document or ""),
             package_name=row.package_name or "",
             tour_code=row.tour_code or "",
         )
@@ -288,7 +289,7 @@ def enqueue_tour_dispatch_single(
 
     surname = (payload.person.surname or "").strip().upper()
     name = (payload.person.name or "").strip().upper()
-    document = (payload.person.document or "").strip().upper()
+    document = normalize_document((payload.person.document or "").strip().upper())
     package_name = (payload.person.package_name or "").strip()
     tour_name = (payload.person.tour_name or tour.sheet_name or "").strip()
     if not surname:
@@ -373,7 +374,7 @@ def add_pilgrim_to_tour(
         raise HTTPException(status_code=404, detail="Тур не найден")
 
     surname, name = _split_full_name(payload.full_name)
-    document = (payload.document or "").strip().upper()
+    document = normalize_document((payload.document or "").strip().upper())
     package_name = (payload.package_name or "").strip()
 
     existing = None
@@ -404,7 +405,7 @@ def add_pilgrim_to_tour(
             id=str(existing.id),
             surname=existing.surname,
             name=existing.name,
-            document=existing.document or "",
+            document=normalize_document(existing.document or ""),
             package_name=existing.package_name or "",
             tour_code=existing.tour_code or "",
         )
@@ -425,7 +426,7 @@ def add_pilgrim_to_tour(
         id=str(row.id),
         surname=row.surname,
         name=row.name,
-        document=row.document or "",
+        document=normalize_document(row.document or ""),
         package_name=row.package_name or "",
         tour_code=row.tour_code or "",
     )

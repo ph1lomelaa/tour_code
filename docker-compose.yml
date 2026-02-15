@@ -1,0 +1,109 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tour_code_postgres
+    environment:
+      POSTGRES_DB: hickmet
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hickmet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - tour_code_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: tour_code_redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - tour_code_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: tour_code_backend
+    env_file:
+      - backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/hickmet
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: production
+      DEBUG: "False"
+      HOST: 0.0.0.0
+      PORT: 8000
+      DISPATCH_CLIENT_NAME_TEMPLATE: Client_$$CID
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    networks:
+      - tour_code_network
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: tour_code_worker
+    command: celery -A app.core.celery_app worker --loglevel=info -Q tour_dispatch
+    env_file:
+      - backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/hickmet
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: production
+      DEBUG: "False"
+      DISPATCH_CLIENT_NAME_TEMPLATE: Client_$$CID
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - tour_code_network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: /
+    container_name: tour_code_frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    networks:
+      - tour_code_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  tour_code_network:
+    driver: bridge

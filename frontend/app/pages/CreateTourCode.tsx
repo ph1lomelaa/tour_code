@@ -70,8 +70,13 @@ type ComparablePilgrim = {
   iin?: string;
 };
 
-const normalizeDocument = (value?: string) =>
-  (value || "").toUpperCase().replace(/[^0-9A-ZА-ЯЁ_]/g, "");
+const normalizeDocument = (value?: string) => {
+  const cleaned = (value || "").toUpperCase().replace(/[^0-9A-ZА-ЯЁ_]/g, "");
+  if (!cleaned) return "";
+  const digits = cleaned.replace(/\D/g, "");
+  if (!digits || !digits.startsWith("1")) return "";
+  return cleaned;
+};
 
 const normalizeIin = (value?: string) =>
   (value || "").replace(/\D/g, "");
@@ -391,7 +396,10 @@ export function CreateTourCode() {
   const normalizeMatchedValue = (field: MatchedEditableField, rawValue: string): string => {
     const value = rawValue.trim();
     if (!value) return "";
-    if (field === "surname" || field === "name" || field === "document") {
+    if (field === "document") {
+      return normalizeDocument(value);
+    }
+    if (field === "surname" || field === "name") {
       return value.toUpperCase();
     }
     return value;

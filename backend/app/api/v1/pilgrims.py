@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
+from app.services.document_rules import normalize_document
 from db.models import Pilgrim
 
 
@@ -59,7 +60,7 @@ def list_pilgrims(
             func.upper(Pilgrim.name).contains(name_filter.upper())
         )
 
-    document_filter = document.strip()
+    document_filter = normalize_document(document.strip())
     if document_filter:
         query = query.filter(
             func.upper(func.coalesce(Pilgrim.document, "")).contains(document_filter.upper())
@@ -84,7 +85,7 @@ def list_pilgrims(
                 id=str(row.id),
                 surname=row.surname,
                 name=row.name,
-                document=row.document or "",
+                document=normalize_document(row.document or ""),
                 package_name=row.package_name or "",
                 tour_code=row.tour_code or "",
                 tour_id=str(row.tour_id),

@@ -1,0 +1,17 @@
+.git
+.gitignore
+.DS_Store
+
+backend/venv
+frontend/node_modules
+frontend/dist
+
+**/__pycache__
+**/*.pyc
+
+backend/logs
+backend/uploads
+logs
+uploads
+
+hickmet.db
