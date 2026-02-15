@@ -13,12 +13,6 @@
 docker compose up -d --build
 ```
 
-Проверка:
-
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:8000`
-- Swagger: `http://localhost:8000/docs`
-
 Логи:
 
 ```bash
