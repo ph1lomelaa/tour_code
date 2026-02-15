@@ -306,6 +306,7 @@ def enqueue_tour_dispatch_single(
             "days": int(tour.days or 0),
             "route": tour.route or "",
             "departure_city": tour.departure_city or "",
+            "airlines": tour.airlines or "",
         },
         "selection": {
             "country": tour.country or "",

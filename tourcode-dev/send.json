@@ -1,0 +1,21 @@
+{
+  "input": {
+    "q_touragent": "HICKMET PREMIUM", // def
+    "q_touragent_bin": "240340000277", // def
+    "q_country": "Саудовская Аравия", // def
+    "q_countryen": "Saudi Arabia", // def
+    "q_airport_start": "ALA", // get it
+    "q_airlines": "KC", // get it
+    "q_airport": "JED", // get it
+    "q_date_from": "13.02.2026", // get it
+    "q_date_to": "20.02.2026", // get it
+    "q_days": 8, // get it
+    "q_remark": "some notes", // def
+    "clientcounter": 0, // def
+    "c_name_0": "Client_$CID", // def
+    "c_borned_0": "01.01.1970", // def
+    "c_doc_date_0": "", // def
+    "c_doc_number_0": "N17728134", // get it
+    "c_doc_production_0": "Ministry Of Internal Affairs" // def
+  }
+}

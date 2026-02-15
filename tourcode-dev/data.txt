@@ -1,0 +1,19 @@
+q_touragent='Хикмет Тревел'
+q_touragent_bin='080340019818'
+"q_country":"Саудовская Аравия",
+"q_countryen":"", # пусто на пейлоде
+"q_airport_start":"ALA",
+"q_airlines":"KC",
+"q_airport":"JED",
+"q_date_from":"17.11.2018",
+"q_date_to":"24.11.2018",
+"q_days":8,
+"q_remark":"", # пусто на пейлоде
+"clientcounter":0,
+"c_name_0":"Client_$CID", # проблемка
+"c_borned_0":"01.01.1970",
+"c_doc_date_0":"", # пусто на пейлоде
+"c_doc_number_0":"N08462365",
+"c_doc_production_0":"MIA OF RK",
+
+c_nmeng_0="AMANGELDIYEV"

@@ -1,0 +1,34 @@
+{
+  "input": {
+    "q_touragent": "ADIYA TRAVEL",
+    "q_touragent_bin": "123456789012",
+    "q_country": "Россия",
+    "q_countryen": "Russia",
+    "q_airport_start": "ALA",
+    "q_airlines": "DV",
+    "q_airport": "AAQ",
+    "q_date_from": "17.11.2026",
+    "q_date_to": "24.11.2026",
+    "q_days": 8,
+    "q_remark": "tour notes here",
+    "clientcounter": 0,
+    "c_name_0": "Client_$CID",
+    "c_borned_0": "01.01.1970",
+    "c_doc_date_0": "02.11.2016",
+    "c_doc_number_0": "N08462365",
+    "c_doc_production_0": "MIA OF RK"
+  }
+}
+
+{
+  "status": 200,
+  "string": "4Ru61117-33"
+}
+
+{
+  "input": {
+    "what": ["country", "countryen", "currency"],
+    "output": "array"
+  }
+}
+

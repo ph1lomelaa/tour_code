@@ -1,5 +1,5 @@
 """
-Фоновая отправка данных тур-кода во внешний backend.
+Background dispatch task for sending tour-code payloads to partner API.
 """
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ import logging
 
 import httpx
 
-from app.queue.celery_app import celery_app
 from app.core.config import settings
-from db.setup import SessionLocal
-from db.models import DispatchJob, DispatchJobStatus
+from app.queue.celery_app import celery_app
 from app.services.partner_payload_builder import build_partner_payload
+from db.models import DispatchJob, DispatchJobStatus, Tour
+from db.setup import SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,6 @@ def _extract_business_error(response: httpx.Response) -> str | None:
                     status_int = int(biz_status)
                 except (TypeError, ValueError):
                     status_int = 0
-
                 if status_int != 200:
                     message = str(body.get("string") or body.get("message") or "").strip()
                     if not message:
@@ -68,16 +67,8 @@ def _extract_business_error(response: httpx.Response) -> str | None:
     text = (response.text or "").strip()
     if not text:
         return None
-
-    lowered = text.lower()
-    known_error_markers = [
-        "не указаны обязательные параметры",
-        "вам запрещено создавать туркод",
-        "tour dates must be future",
-    ]
-    if any(marker in lowered for marker in known_error_markers):
+    if "tour dates must be future" in text.lower():
         return _truncate_text(text, 800)
-
     return None
 
 
@@ -86,43 +77,37 @@ def _resolve_platform_mode() -> str:
     if configured_mode in {"test", "prod"}:
         return configured_mode
 
-    target_url = (settings.DISPATCH_TARGET_URL or "").strip().lower()
-    if "test.fondkamkor.kz" in target_url:
+    test_target_url = (settings.DISPATCH_TEST_TARGET_URL or "").strip().lower()
+    prod_target_url = (settings.DISPATCH_PROD_TARGET_URL or "").strip().lower()
+    legacy_target_url = (settings.DISPATCH_TARGET_URL or "").strip().lower()
+
+    if "test.fondkamkor.kz" in legacy_target_url:
         return "test"
-
-    auth_url = (settings.DISPATCH_AUTH_URL or "").strip()
-    save_url = (settings.DISPATCH_SAVE_URL or "").strip()
-    if auth_url and save_url:
+    if legacy_target_url:
         return "prod"
-
+    if prod_target_url:
+        return "prod"
+    if test_target_url:
+        return "test"
     return "test"
 
 
-def _resolve_dispatch_target_url() -> str:
-    target_url = (settings.DISPATCH_TARGET_URL or "").strip()
-    if target_url:
-        return target_url
+def _resolve_dispatch_target_url(mode: str) -> str:
+    mode_normalized = (mode or "").strip().lower()
+    if mode_normalized == "prod":
+        target_url = (settings.DISPATCH_PROD_TARGET_URL or "").strip()
+        if target_url:
+            return target_url
+    else:
+        target_url = (settings.DISPATCH_TEST_TARGET_URL or "").strip()
+        if target_url:
+            return target_url
 
-    # Fallback for legacy env setups.
-    legacy_save_url = (settings.DISPATCH_SAVE_URL or "").strip()
-    if legacy_save_url:
-        return legacy_save_url
+    legacy_target_url = (settings.DISPATCH_TARGET_URL or "").strip()
+    if legacy_target_url:
+        return legacy_target_url
 
-    raise RuntimeError("DISPATCH_TARGET_URL is not configured")
-
-
-def _resolve_dispatch_auth_url() -> str:
-    auth_url = (settings.DISPATCH_AUTH_URL or "").strip()
-    if auth_url:
-        return auth_url
-    raise RuntimeError("DISPATCH_AUTH_URL is not configured")
-
-
-def _resolve_dispatch_save_url() -> str:
-    save_url = (settings.DISPATCH_SAVE_URL or "").strip()
-    if save_url:
-        return save_url
-    raise RuntimeError("DISPATCH_SAVE_URL is not configured")
+    raise RuntimeError(f"Dispatch target URL is not configured for mode '{mode_normalized or 'test'}'")
 
 
 def _json_headers() -> Dict[str, str]:
@@ -131,24 +116,6 @@ def _json_headers() -> Dict[str, str]:
         "User-Agent": settings.DISPATCH_USER_AGENT,
         "Accept": "application/json,text/plain,*/*",
     }
-
-
-def _form_headers(*, auth: bool) -> Dict[str, str]:
-    headers: Dict[str, str] = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": settings.DISPATCH_USER_AGENT,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    }
-
-    origin = (settings.DISPATCH_ORIGIN or "").strip()
-    if origin:
-        headers["Origin"] = origin
-
-    referer = settings.DISPATCH_AUTH_REFERER if auth else settings.DISPATCH_SAVE_REFERER
-    if referer:
-        headers["Referer"] = referer
-
-    return headers
 
 
 def _calc_progress(sent_items: int, total_items: int) -> Dict[str, int]:
@@ -179,13 +146,17 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
         db.commit()
 
         mode = _resolve_platform_mode()
-        prepared_payload = build_partner_payload(job.payload, mode=mode)
+        tour_db = db.get(Tour, job.tour_id) if job.tour_id else None
+        prepared_payload = build_partner_payload(job.payload, mode=mode, tour_db=tour_db)
         job.prepared_payload = {"mode": mode, **prepared_payload}
         db.commit()
 
+        json_items = prepared_payload.get("json_items") or []
+        if not isinstance(json_items, list):
+            json_items = []
+
         if settings.DISPATCH_DRY_RUN:
-            items_key = "json_items" if mode == "test" else "save_items"
-            items_total = len(prepared_payload.get(items_key) or [])
+            items_total = len(json_items)
             job.status = DispatchJobStatus.SENT
             job.sent_at = datetime.utcnow()
             job.next_attempt_at = None
@@ -198,127 +169,37 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 "progress": _calc_progress(items_total, items_total),
             }
             db.commit()
-            logger.info("🧪 Dispatch job dry-run prepared: %s", job_id)
+            logger.info("Dispatch job dry-run prepared: %s", job_id)
             return {"ok": True, "job_id": job_id, "status": job.status.value, "dry_run": True}
 
-        if mode == "test":
-            json_items = prepared_payload.get("json_items") or []
-            if not isinstance(json_items, list):
-                json_items = []
-            if len(json_items) == 0:
-                raise RuntimeError("No pilgrims to dispatch: json_items is empty")
+        if len(json_items) == 0:
+            raise RuntimeError("No pilgrims to dispatch: json_items is empty")
 
-            target_url = _resolve_dispatch_target_url()
-            headers = _json_headers()
-            responses: list[Dict[str, Any]] = []
-            total_items = len(json_items)
-
-            job.response_payload = {
-                "mode": "test",
-                "target_url": target_url,
-                "json_items_total": total_items,
-                "json_items_sent": 0,
-                "progress": _calc_progress(0, total_items),
-            }
-            db.commit()
-
-            with httpx.Client(timeout=settings.DISPATCH_REQUEST_TIMEOUT_SECONDS, follow_redirects=True) as client:
-                for item in json_items:
-                    item_index = int(item.get("index") or 0)
-                    payload = item.get("payload") or {}
-                    if not isinstance(payload, dict):
-                        raise RuntimeError(f"Invalid json payload for item index {item_index}")
-
-                    response = client.post(target_url, json=payload, headers=headers)
-                    if response.status_code >= 400:
-                        error_text = f"Target returned HTTP {response.status_code} (item #{item_index})"
-                        raise RuntimeError(f"{error_text}: {_truncate_text(response.text or '')}")
-
-                    business_error = _extract_business_error(response)
-                    if business_error:
-                        raise RuntimeError(f"{business_error} (item #{item_index})")
-
-                    responses.append(
-                        {
-                            "index": item_index,
-                            "meta": item.get("meta") or {},
-                            "response": _safe_response_payload(response),
-                        }
-                    )
-                    sent_items = len(responses)
-                    job.response_payload = {
-                        "mode": "test",
-                        "target_url": target_url,
-                        "json_items_total": total_items,
-                        "json_items_sent": sent_items,
-                        "progress": _calc_progress(sent_items, total_items),
-                        "last_sent_index": item_index,
-                        "last_sent_meta": item.get("meta") or {},
-                    }
-                    db.commit()
-
-            job.status = DispatchJobStatus.SENT
-            job.sent_at = datetime.utcnow()
-            job.next_attempt_at = None
-            job.error_message = None
-            job.response_payload = {
-                "mode": "test",
-                "target_url": target_url,
-                "json_items_total": total_items,
-                "json_items_sent": len(responses),
-                "progress": _calc_progress(len(responses), total_items),
-                "json_items": responses,
-            }
-            db.commit()
-
-            logger.info("✅ Dispatch job sent: %s", job_id)
-            return {"ok": True, "job_id": job_id, "status": job.status.value}
-
-        # prod mode: auth + form-urlencoded save
-        save_items = prepared_payload.get("save_items") or []
-        if not isinstance(save_items, list):
-            save_items = []
-        if len(save_items) == 0:
-            raise RuntimeError("No pilgrims to dispatch: save_items is empty")
-
-        auth_form = prepared_payload.get("auth") or {}
-        if not isinstance(auth_form, dict) or not auth_form:
-            raise RuntimeError("Invalid auth form payload")
-
-        auth_url = _resolve_dispatch_auth_url()
-        save_url = _resolve_dispatch_save_url()
+        target_url = _resolve_dispatch_target_url(mode)
+        headers = _json_headers()
         responses: list[Dict[str, Any]] = []
-        total_items = len(save_items)
+        total_items = len(json_items)
+
+        job.response_payload = {
+            "mode": mode,
+            "target_url": target_url,
+            "json_items_total": total_items,
+            "json_items_sent": 0,
+            "progress": _calc_progress(0, total_items),
+        }
+        db.commit()
 
         with httpx.Client(timeout=settings.DISPATCH_REQUEST_TIMEOUT_SECONDS, follow_redirects=True) as client:
-            auth_response = client.post(auth_url, data=auth_form, headers=_form_headers(auth=True))
-            if auth_response.status_code >= 400:
-                raise RuntimeError(f"Auth returned HTTP {auth_response.status_code}: {_truncate_text(auth_response.text or '')}")
-
-            auth_error = _extract_business_error(auth_response)
-            if auth_error:
-                raise RuntimeError(f"Auth failed: {auth_error}")
-
-            job.response_payload = {
-                "mode": "prod",
-                "auth_url": auth_url,
-                "save_url": save_url,
-                "save_items_total": total_items,
-                "save_items_sent": 0,
-                "progress": _calc_progress(0, total_items),
-                "auth_response": _safe_response_payload(auth_response),
-            }
-            db.commit()
-
-            for item in save_items:
+            for item in json_items:
                 item_index = int(item.get("index") or 0)
-                save_form = item.get("save") or {}
-                if not isinstance(save_form, dict):
-                    raise RuntimeError(f"Invalid save payload for item index {item_index}")
+                payload = item.get("payload") or {}
+                if not isinstance(payload, dict):
+                    raise RuntimeError(f"Invalid json payload for item index {item_index}")
 
-                response = client.post(save_url, data=save_form, headers=_form_headers(auth=False))
+                response = client.post(target_url, json=payload, headers=headers)
                 if response.status_code >= 400:
-                    raise RuntimeError(f"Save returned HTTP {response.status_code} (item #{item_index}): {_truncate_text(response.text or '')}")
+                    error_text = f"Target returned HTTP {response.status_code} (item #{item_index})"
+                    raise RuntimeError(f"{error_text}: {_truncate_text(response.text or '')}")
 
                 business_error = _extract_business_error(response)
                 if business_error:
@@ -333,11 +214,10 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 )
                 sent_items = len(responses)
                 job.response_payload = {
-                    "mode": "prod",
-                    "auth_url": auth_url,
-                    "save_url": save_url,
-                    "save_items_total": total_items,
-                    "save_items_sent": sent_items,
+                    "mode": mode,
+                    "target_url": target_url,
+                    "json_items_total": total_items,
+                    "json_items_sent": sent_items,
                     "progress": _calc_progress(sent_items, total_items),
                     "last_sent_index": item_index,
                     "last_sent_meta": item.get("meta") or {},
@@ -349,21 +229,20 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
         job.next_attempt_at = None
         job.error_message = None
         job.response_payload = {
-            "mode": "prod",
-            "auth_url": auth_url,
-            "save_url": save_url,
-            "save_items_total": total_items,
-            "save_items_sent": len(responses),
+            "mode": mode,
+            "target_url": target_url,
+            "json_items_total": total_items,
+            "json_items_sent": len(responses),
             "progress": _calc_progress(len(responses), total_items),
-            "save_items": responses,
+            "json_items": responses,
         }
         db.commit()
 
-        logger.info("✅ Dispatch job sent: %s", job_id)
+        logger.info("Dispatch job sent: %s", job_id)
         return {"ok": True, "job_id": job_id, "status": job.status.value}
 
     except Exception as exc:
-        logger.error("❌ Dispatch job failed (%s): %s", job_id, exc)
+        logger.error("Dispatch job failed (%s): %s", job_id, exc)
 
         job = db.get(DispatchJob, job_id)
         if job is None:

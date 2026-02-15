@@ -59,11 +59,18 @@ class Settings(BaseSettings):
     DISPATCH_DRY_RUN: bool = False
     # test | prod | auto
     DISPATCH_PLATFORM_MODE: str = "auto"
-    # JSON endpoint (test platform: http://test.fondkamkor.kz)
+    # Legacy single JSON endpoint (kept for backward compatibility)
     DISPATCH_TARGET_URL: str = ""
-    # Legacy auth/save URLs (kept for backward compatibility in env only)
+    # Legacy auth/save URLs (kept for backward compatibility)
     DISPATCH_AUTH_URL: str = ""
     DISPATCH_SAVE_URL: str = ""
+    # Preferred mode-specific JSON endpoints and credentials
+    DISPATCH_TEST_TARGET_URL: str = "http://test.fondkamkor.kz"
+    DISPATCH_PROD_TARGET_URL: str = ""
+    DISPATCH_TEST_AGENT_LOGIN: str = "test"
+    DISPATCH_TEST_AGENT_PASS: str = "test"
+    DISPATCH_PROD_AGENT_LOGIN: str = ""
+    DISPATCH_PROD_AGENT_PASS: str = ""
     DISPATCH_REQUEST_TIMEOUT_SECONDS: int = 30
     DISPATCH_MAX_ATTEMPTS: int = 5
     DISPATCH_RETRY_DELAY_SECONDS: int = 60
@@ -79,14 +86,23 @@ class Settings(BaseSettings):
     DISPATCH_RETURN_FIELD: str = "q_number"
     DISPATCH_AGENT_LOGIN: str = ""
     DISPATCH_AGENT_PASS: str = ""
-    DISPATCH_TOURAGENT_NAME: str = "ADIYA TRAVEL"
-    DISPATCH_TOURAGENT_BIN: str = ""
+    DISPATCH_TOURAGENT_NAME: str = "HICKMET PREMIUM"
+    DISPATCH_TOURAGENT_BIN: str = "240340000277"
     DISPATCH_DEFAULT_AIRLINE: str = "KC"
     DISPATCH_DEFAULT_DOC_PRODUCTION: str = "Ministry Of Internal Affairs"
     DISPATCH_DEFAULT_DOC_TYPE: str = "паспорт"
-    DISPATCH_DEFAULT_DOC_DATE: str = "02.11.2016"
+    DISPATCH_DEFAULT_DOC_DATE: str = ""
     DISPATCH_DEFAULT_RESIDENT: str = "резидент"
     DISPATCH_DEFAULT_BIRTH_DATE: str = "01.01.1970"
+    DISPATCH_DEFAULT_DOC_NUMBER: str = "N17728134"
+    DISPATCH_DEFAULT_COUNTRY: str = "Саудовская Аравия"
+    DISPATCH_DEFAULT_COUNTRY_EN: str = "Saudi Arabia"
+    DISPATCH_DEFAULT_AIRPORT_START: str = "ALA"
+    DISPATCH_DEFAULT_AIRPORT: str = "JED"
+    DISPATCH_DEFAULT_DATE_FROM: str = "13.02.2026"
+    DISPATCH_DEFAULT_DATE_TO: str = "20.02.2026"
+    DISPATCH_DEFAULT_DAYS: int = 8
+    DISPATCH_DEFAULT_REMARK: str = ""
     DISPATCH_CLIENT_NAME_TEMPLATE: str = "Client_$CID"
 
     # Form fields for partner queries/163/save

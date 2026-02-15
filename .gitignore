@@ -69,3 +69,5 @@ frontend/.env
 backend/credentials/credentials.json
 __pycache__/
 *.pyc
+
+/tourcode

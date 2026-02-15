@@ -6,18 +6,6 @@ from typing import Any, Dict, List, Tuple
 from app.core.config import settings
 
 
-COUNTRY_EN_MAP = {
-    "Саудовская Аравия": "Saudi Arabia",
-}
-
-
-def _country_en(value: str) -> str:
-    text = (value or "").strip()
-    if not text:
-        return ""
-    return COUNTRY_EN_MAP.get(text, text)
-
-
 def _split_route(route: str) -> Tuple[str, str]:
     raw = (route or "").strip().upper()
     if "-" not in raw:
@@ -42,8 +30,8 @@ def _fmt_ddmmyyyy(value: date) -> str:
 
 def _future_test_dates(date_from_raw: str, date_to_raw: str, days_raw: Any) -> Tuple[str, str]:
     """
-    Test platform rejects past dates.
-    In test mode, auto-shift past dates to near future to keep integration flow testable.
+    test.fondkamkor rejects past dates.
+    In test mode, shift invalid/past dates to near future.
     """
     parsed_from = _parse_ddmmyyyy(date_from_raw)
     parsed_to = _parse_ddmmyyyy(date_to_raw)
@@ -58,148 +46,126 @@ def _future_test_dates(date_from_raw: str, date_to_raw: str, days_raw: Any) -> T
     if parsed_from and parsed_from > today and parsed_to and parsed_to > parsed_from:
         return date_from_raw, date_to_raw
 
-    # Temporary test fallback: move departure to ближайшую будущую дату.
     shifted_from = today + timedelta(days=2)
     shifted_to = shifted_from + timedelta(days=trip_days - 1)
     return _fmt_ddmmyyyy(shifted_from), _fmt_ddmmyyyy(shifted_to)
 
 
-def _resolve_override(overrides: Dict[str, Any], key: str, fallback: str) -> str:
-    value = overrides.get(key)
+def _to_clean_str(value: Any) -> str:
     if value is None:
-        return fallback
-    text = str(value).strip()
-    return text or fallback
+        return ""
+    return str(value).strip()
+
+
+def _coerce_days(value: Any, fallback: int = 0) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = 0
+    if parsed > 0:
+        return parsed
+    return max(int(fallback or 0), 0)
+
+
+def _tour_text(snapshot_tour: Dict[str, Any], tour_db: Any, key: str, fallback: str = "") -> str:
+    db_value = _to_clean_str(getattr(tour_db, key, "")) if tour_db is not None else ""
+    if db_value:
+        return db_value
+
+    snapshot_value = _to_clean_str(snapshot_tour.get(key))
+    if snapshot_value:
+        return snapshot_value
+
+    return fallback
+
+
+def _tour_days(snapshot_tour: Dict[str, Any], tour_db: Any) -> int:
+    db_value = getattr(tour_db, "days", None) if tour_db is not None else None
+    if db_value is not None:
+        parsed_db = _coerce_days(db_value)
+        if parsed_db > 0:
+            return parsed_db
+
+    parsed_snapshot = _coerce_days(snapshot_tour.get("days"))
+    if parsed_snapshot > 0:
+        return parsed_snapshot
+
+    return _coerce_days(settings.DISPATCH_DEFAULT_DAYS)
+
+
+def _resolve_agent_credentials(mode: str) -> Tuple[str, str]:
+    mode_normalized = (mode or "").strip().lower()
+    if mode_normalized == "prod":
+        login = _to_clean_str(settings.DISPATCH_PROD_AGENT_LOGIN) or _to_clean_str(settings.DISPATCH_AGENT_LOGIN)
+        password = _to_clean_str(settings.DISPATCH_PROD_AGENT_PASS) or _to_clean_str(settings.DISPATCH_AGENT_PASS)
+        return login, password
+
+    login = _to_clean_str(settings.DISPATCH_TEST_AGENT_LOGIN) or _to_clean_str(settings.DISPATCH_AGENT_LOGIN)
+    password = _to_clean_str(settings.DISPATCH_TEST_AGENT_PASS) or _to_clean_str(settings.DISPATCH_AGENT_PASS)
+    return login, password
+
+
+def _build_input_base(snapshot: Dict[str, Any], mode: str, tour_db: Any) -> Dict[str, Any]:
+    tour = snapshot.get("tour") if isinstance(snapshot.get("tour"), dict) else {}
+    selection = snapshot.get("selection") if isinstance(snapshot.get("selection"), dict) else {}
+
+    route = _tour_text(tour, tour_db, "route")
+    if not route:
+        route = _to_clean_str(selection.get("flight"))
+    airport_start, airport_end = _split_route(route)
+    airport_start = airport_start or settings.DISPATCH_DEFAULT_AIRPORT_START
+    airport_end = airport_end or settings.DISPATCH_DEFAULT_AIRPORT
+
+    q_airlines = _tour_text(tour, tour_db, "airlines", settings.DISPATCH_DEFAULT_AIRLINE)
+    q_date_from = _tour_text(tour, tour_db, "date_start", settings.DISPATCH_DEFAULT_DATE_FROM)
+    q_date_to = _tour_text(tour, tour_db, "date_end", settings.DISPATCH_DEFAULT_DATE_TO)
+    q_days = _tour_days(tour, tour_db)
+
+    if (mode or "").strip().lower() == "test":
+        q_date_from, q_date_to = _future_test_dates(q_date_from, q_date_to, q_days)
+
+    return {
+        # Defaults from settings: do not derive from DB/user snapshot
+        "q_touragent": settings.DISPATCH_TOURAGENT_NAME,
+        "q_touragent_bin": settings.DISPATCH_TOURAGENT_BIN,
+        "q_country": settings.DISPATCH_DEFAULT_COUNTRY,
+        "q_countryen": settings.DISPATCH_DEFAULT_COUNTRY_EN,
+        "q_remark": settings.DISPATCH_DEFAULT_REMARK,
+        # Values sourced from tour data (DB/snapshot)
+        "q_airport_start": airport_start,
+        "q_airlines": q_airlines,
+        "q_airport": airport_end,
+        "q_date_from": q_date_from,
+        "q_date_to": q_date_to,
+        "q_days": q_days,
+    }
 
 
 def _pilgrim_meta(row: Dict[str, Any]) -> Dict[str, str]:
     return {
-        "surname": str(row.get("surname") or "").strip(),
-        "name": str(row.get("name") or "").strip(),
-        "document": str(row.get("document") or "").strip(),
+        "surname": _to_clean_str(row.get("surname")),
+        "name": _to_clean_str(row.get("name")),
+        "document": _to_clean_str(row.get("document")),
     }
 
 
-def _build_clients_input_prod(matched: List[Dict[str, Any]]) -> Dict[str, str]:
-    data: Dict[str, str] = {}
-    for idx, row in enumerate(matched):
-        surname = (row.get("surname") or "").strip().upper()
-        name = (row.get("name") or "").strip().upper()
-        doc = (row.get("document") or "").strip().upper()
-        client_name = settings.DISPATCH_CLIENT_NAME_TEMPLATE or f"Client_{idx + 1}"
-
-        data[f"c_name_{idx}"] = client_name
-        data[f"c_nmeng_{idx}"] = surname or name or f"CLIENT_{idx + 1}"
-        data[f"c_borned_{idx}"] = settings.DISPATCH_DEFAULT_BIRTH_DATE
-        data[f"c_doc_type_{idx}"] = settings.DISPATCH_DEFAULT_DOC_TYPE
-        data[f"c_doc_number_{idx}"] = doc
-        data[f"c_doc_production_{idx}"] = settings.DISPATCH_DEFAULT_DOC_PRODUCTION
-        data[f"c_doc_date_{idx}"] = settings.DISPATCH_DEFAULT_DOC_DATE
-        data[f"c_bin_{idx}"] = ""
-        data[f"c_sex_{idx}"] = ""
-        data[f"c_address_{idx}"] = ""
-        data[f"c_resident_{idx}"] = settings.DISPATCH_DEFAULT_RESIDENT
-        data[f"c_rnn_{idx}"] = ""
-        data[f"c_phone2_{idx}"] = ""
-        data[f"c_cellphone2_{idx}"] = ""
-
-    data["clientcounter"] = str(max(len(matched) - 1, 0))
-    return data
-
-
-def _build_clients_input_test(matched: List[Dict[str, Any]]) -> Dict[str, str]:
-    data: Dict[str, str] = {}
-    for idx, row in enumerate(matched):
-        doc = (row.get("document") or "").strip().upper()
-        client_name = settings.DISPATCH_CLIENT_NAME_TEMPLATE or f"Client_{idx + 1}"
-
-        data[f"c_name_{idx}"] = client_name
-        data[f"c_borned_{idx}"] = settings.DISPATCH_DEFAULT_BIRTH_DATE
-        data[f"c_doc_date_{idx}"] = settings.DISPATCH_DEFAULT_DOC_DATE
-        data[f"c_doc_number_{idx}"] = doc
-        data[f"c_doc_production_{idx}"] = settings.DISPATCH_DEFAULT_DOC_PRODUCTION
-
-    data["clientcounter"] = str(max(len(matched) - 1, 0))
-    return data
-
-
-def _build_save_form_base_prod(snapshot: Dict[str, Any]) -> Dict[str, str]:
-    tour = snapshot.get("tour") or {}
-    selection = snapshot.get("selection") or {}
-    dispatch_overrides = snapshot.get("dispatch_overrides") or {}
-    if not isinstance(dispatch_overrides, dict):
-        dispatch_overrides = {}
-
-    route = (tour.get("route") or selection.get("flight") or "").strip()
-    airport_start, airport_end = _split_route(route)
-    country = (selection.get("country") or "").strip()
-
+def _build_single_client_input(row: Dict[str, Any]) -> Dict[str, Any]:
+    doc_number = _to_clean_str(row.get("document")).upper() or settings.DISPATCH_DEFAULT_DOC_NUMBER
     return {
-        "filialid": _resolve_override(dispatch_overrides, "filialid", settings.DISPATCH_FILIAL_ID),
-        "firmid": _resolve_override(dispatch_overrides, "firmid", settings.DISPATCH_FIRM_ID),
-        "firmname": _resolve_override(dispatch_overrides, "firmname", settings.DISPATCH_FIRM_NAME),
-        "q_internal": settings.DISPATCH_Q_INTERNAL,
-        "q_cost": "",
-        "q_agent_assign": settings.DISPATCH_Q_AGENT_ASSIGN,
-        "q_tourist_phone": "",
-        "q_currency": settings.DISPATCH_Q_CURRENCY,
-        "q_number": settings.DISPATCH_Q_NUMBER_TEMPLATE,
-        "q_short_number": "",
-        "q_countryen": _country_en(country),
-        "q_pretk": "",
-        "q_touragent_bin": _resolve_override(dispatch_overrides, "q_touragent_bin", settings.DISPATCH_TOURAGENT_BIN),
-        "q_touragent": _resolve_override(dispatch_overrides, "q_touragent", settings.DISPATCH_TOURAGENT_NAME),
-        "q_date_from": (tour.get("date_start") or "").strip(),
-        "q_date_to": (tour.get("date_end") or "").strip(),
-        "q_days": str(int(tour.get("days") or 0)),
-        "q_airlines": settings.DISPATCH_DEFAULT_AIRLINE,
-        "q_airport_start": airport_start,
-        "q_airport": airport_end,
-        "q_flight": "",
-        "q_flight_from": "",
-        "q_country": country,
-        "q_hotel": (selection.get("hotel") or "").strip(),
-        "q_remark": (selection.get("remark") or "").strip(),
-        "q_profit_type": "",
-        "q_profit": "",
-        "q_start_commission": "",
-        "offercounter": str(settings.DISPATCH_OFFER_COUNTER),
-        "formid": str(settings.DISPATCH_FORM_ID),
+        # One pilgrim per request
+        "clientcounter": 0,
+        # Defaults from settings
+        "c_name_0": settings.DISPATCH_CLIENT_NAME_TEMPLATE,
+        "c_borned_0": settings.DISPATCH_DEFAULT_BIRTH_DATE,
+        "c_doc_date_0": settings.DISPATCH_DEFAULT_DOC_DATE,
+        "c_doc_production_0": settings.DISPATCH_DEFAULT_DOC_PRODUCTION,
+        # Value sourced from tour participant
+        "c_doc_number_0": doc_number,
     }
 
 
-def _build_input_base_test(snapshot: Dict[str, Any]) -> Dict[str, str]:
-    tour = snapshot.get("tour") or {}
-    selection = snapshot.get("selection") or {}
-    dispatch_overrides = snapshot.get("dispatch_overrides") or {}
-    if not isinstance(dispatch_overrides, dict):
-        dispatch_overrides = {}
-
-    route = (tour.get("route") or selection.get("flight") or "").strip()
-    airport_start, airport_end = _split_route(route)
-    country = (selection.get("country") or "").strip()
-
-    date_from_raw = (tour.get("date_start") or "").strip()
-    date_to_raw = (tour.get("date_end") or "").strip()
-    days_raw = tour.get("days") or 0
-    date_from, date_to = _future_test_dates(date_from_raw, date_to_raw, days_raw)
-
-    return {
-        "q_touragent": _resolve_override(dispatch_overrides, "q_touragent", settings.DISPATCH_TOURAGENT_NAME),
-        "q_touragent_bin": _resolve_override(dispatch_overrides, "q_touragent_bin", settings.DISPATCH_TOURAGENT_BIN),
-        "q_country": country,
-        "q_countryen": _country_en(country),
-        "q_airport_start": airport_start,
-        "q_airlines": settings.DISPATCH_DEFAULT_AIRLINE,
-        "q_airport": airport_end,
-        "q_date_from": date_from,
-        "q_date_to": date_to,
-        "q_days": int(days_raw or 0),
-        "q_remark": (selection.get("remark") or "").strip(),
-    }
-
-
-def _build_json_envelope_test(single_input: Dict[str, Any]) -> Dict[str, Any]:
+def _build_json_envelope(single_input: Dict[str, Any], mode: str) -> Dict[str, Any]:
+    agent_login, agent_pass = _resolve_agent_credentials(mode)
     return {
         "input": single_input,
         "module": settings.DISPATCH_MODULE,
@@ -208,52 +174,25 @@ def _build_json_envelope_test(single_input: Dict[str, Any]) -> Dict[str, Any]:
         "param1": settings.DISPATCH_PARAM1,
         "param2": settings.DISPATCH_PARAM2,
         "formid": int(settings.DISPATCH_FORM_ID),
-        "agentlogin": settings.DISPATCH_AGENT_LOGIN,
-        "agentpass": settings.DISPATCH_AGENT_PASS,
+        "agentlogin": agent_login,
+        "agentpass": agent_pass,
         "return": settings.DISPATCH_RETURN_FIELD,
     }
 
 
-def build_partner_payload(snapshot: Dict[str, Any], mode: str = "test") -> Dict[str, Any]:
-    results = snapshot.get("results") or {}
-    matched = results.get("matched") or []
-    if not isinstance(matched, list):
-        matched = []
+def build_partner_payload(snapshot: Dict[str, Any], mode: str = "test", tour_db: Any = None) -> Dict[str, Any]:
+    results = snapshot.get("results") if isinstance(snapshot.get("results"), dict) else {}
+    matched = results.get("matched") if isinstance(results.get("matched"), list) else []
 
-    if mode == "prod":
-        base_form = _build_save_form_base_prod(snapshot)
-        save_items: List[Dict[str, Any]] = []
-        for index, pilgrim in enumerate(matched):
-            if not isinstance(pilgrim, dict):
-                continue
-            save_form = dict(base_form)
-            save_form.update(_build_clients_input_prod([pilgrim]))  # 1 pilgrim per request
-            save_items.append(
-                {
-                    "index": index,
-                    "save": save_form,
-                    "meta": _pilgrim_meta(pilgrim),
-                }
-            )
-
-        auth_form = {
-            "agentlogin": settings.DISPATCH_AGENT_LOGIN,
-            "agentpass": settings.DISPATCH_AGENT_PASS,
-            "jump2": settings.DISPATCH_AUTH_JUMP2,
-            "submit": settings.DISPATCH_AUTH_SUBMIT,
-        }
-        return {"auth": auth_form, "save_items": save_items}
-
-    # test mode (default): POST JSON to target URL
-    base_input = _build_input_base_test(snapshot)
+    base_input = _build_input_base(snapshot, mode=mode, tour_db=tour_db)
     json_items: List[Dict[str, Any]] = []
     for index, pilgrim in enumerate(matched):
         if not isinstance(pilgrim, dict):
             continue
 
-        single_input: Dict[str, Any] = dict(base_input)
-        single_input.update(_build_clients_input_test([pilgrim]))  # 1 pilgrim per request
-        payload = _build_json_envelope_test(single_input)
+        single_input = dict(base_input)
+        single_input.update(_build_single_client_input(pilgrim))
+        payload = _build_json_envelope(single_input, mode=mode)
         json_items.append(
             {
                 "index": index,

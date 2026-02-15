@@ -40,6 +40,7 @@ class DispatchTourSnapshot(BaseModel):
     days: int = 0
     route: str = ""
     departure_city: str = ""
+    airlines: str = ""
 
 
 class DispatchSelectionSnapshot(BaseModel):
@@ -121,7 +122,7 @@ def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
         days=t.days,
         route=t.route or s.flight,
         departure_city=t.departure_city,
-        airlines=settings.DISPATCH_DEFAULT_AIRLINE,
+        airlines=(t.airlines or "").strip() or settings.DISPATCH_DEFAULT_AIRLINE,
         country=s.country,
         hotel=s.hotel,
         remark=s.remark or None,
@@ -186,15 +187,22 @@ def _as_job_response(job: DispatchJob) -> DispatchJobResponse:
     items_sent = _to_int(progress_raw.get("sent_items"))
 
     if items_total <= 0:
-        if platform_mode == "test":
-            items_total = len(prepared_payload.get("json_items") or [])
-            items_sent = max(items_sent, _to_int(response_payload.get("json_items_sent")))
-        elif platform_mode == "prod":
-            items_total = len(prepared_payload.get("save_items") or [])
-            items_sent = max(items_sent, _to_int(response_payload.get("save_items_sent")))
-        elif platform_mode == "dry_run":
+        if platform_mode == "dry_run":
             items_total = _to_int(response_payload.get("items_total"))
             items_sent = items_total
+        else:
+            json_items = prepared_payload.get("json_items") or []
+            save_items = prepared_payload.get("save_items") or []
+            if isinstance(json_items, list) and json_items:
+                items_total = len(json_items)
+            elif isinstance(save_items, list):
+                items_total = len(save_items)
+
+            items_sent = max(
+                items_sent,
+                _to_int(response_payload.get("json_items_sent")),
+                _to_int(response_payload.get("save_items_sent")),
+            )
 
     if job.status == DispatchJobStatus.SENT and items_total > 0:
         items_sent = max(items_sent, items_total)

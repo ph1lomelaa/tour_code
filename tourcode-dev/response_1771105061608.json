@@ -1,0 +1,1305 @@
+{
+  "variants": [
+    [
+      "Австралия",
+      "Australia",
+      "USD"
+    ],
+    [
+      "Австрия",
+      "Austria",
+      "EUR"
+    ],
+    [
+      "Азербайджан",
+      "Azerbaijan",
+      "USD"
+    ],
+    [
+      "Азия",
+      "Asia",
+      "USD"
+    ],
+    [
+      "Азорские Острова",
+      "Azores Island",
+      "EUR"
+    ],
+    [
+      "Аландские Острова",
+      "Aland",
+      "EUR"
+    ],
+    [
+      "Албания",
+      "Albania",
+      "EUR"
+    ],
+    [
+      "Алжир",
+      "Algeria",
+      "USD"
+    ],
+    [
+      "Американские Виргинские Острова",
+      "Virgin Islands",
+      "USD"
+    ],
+    [
+      "Американское Самоа",
+      "American Samoa",
+      "USD"
+    ],
+    [
+      "Ангилья",
+      "Anguilla",
+      "EUR"
+    ],
+    [
+      "Ангола",
+      "Angola",
+      "USD"
+    ],
+    [
+      "Андорра",
+      "Andorra",
+      "EUR"
+    ],
+    [
+      "Антарктида",
+      "Antarctica",
+      ""
+    ],
+    [
+      "Антигуа и Барбуда",
+      "Antigua and Barbuda",
+      "USD"
+    ],
+    [
+      "Аргентина",
+      "Argentina",
+      "USD"
+    ],
+    [
+      "Армения",
+      "Armenia",
+      "USD"
+    ],
+    [
+      "Аруба",
+      "Aruba",
+      "USD"
+    ],
+    [
+      "Афганистан",
+      "Afghanistan",
+      "USD"
+    ],
+    [
+      "Багамские Острова",
+      "Bahamas",
+      "USD"
+    ],
+    [
+      "Бангладеш",
+      "Bangladesh",
+      "USD"
+    ],
+    [
+      "Барбадос",
+      "Barbados",
+      "USD"
+    ],
+    [
+      "Бахрейн",
+      "Bahrain",
+      "USD"
+    ],
+    [
+      "Беларусь",
+      "Belarus",
+      "USD"
+    ],
+    [
+      "Белиз",
+      "Belize",
+      "USD"
+    ],
+    [
+      "Бельгия",
+      "Belgium",
+      "EUR"
+    ],
+    [
+      "Бенин",
+      "Benin",
+      "USD"
+    ],
+    [
+      "Бермудские Острова",
+      "Bermuda",
+      "USD"
+    ],
+    [
+      "Болгария",
+      "Bulgaria",
+      "EUR"
+    ],
+    [
+      "Боливия",
+      "Bolivia",
+      "USD"
+    ],
+    [
+      "Босния и Герцеговина",
+      "Bosnia and Herzegovina",
+      "EUR"
+    ],
+    [
+      "Ботсвана",
+      "Botswana",
+      "USD"
+    ],
+    [
+      "Бразилия",
+      "Brazil",
+      "USD"
+    ],
+    [
+      "Британская Территория в Индийском Океане",
+      "British Indian Ocean Territory",
+      "EUR"
+    ],
+    [
+      "Британские Виргинские Острова",
+      "British Virgin Islands",
+      "EUR"
+    ],
+    [
+      "Бруней",
+      "Brunei",
+      "USD"
+    ],
+    [
+      "Буркина-Фасо",
+      "Burkina Faso",
+      "USD"
+    ],
+    [
+      "Бурунди",
+      "Burundi",
+      "USD"
+    ],
+    [
+      "Бутан",
+      "Bhutan",
+      "USD"
+    ],
+    [
+      "Вазиристан",
+      "Vaziristan",
+      "USD"
+    ],
+    [
+      "Вануату",
+      "Vanuatu",
+      "USD"
+    ],
+    [
+      "Ватикан",
+      "Vatican City",
+      "EUR"
+    ],
+    [
+      "Великобритания",
+      "United Kingdom",
+      "EUR"
+    ],
+    [
+      "Венгрия",
+      "Hungary",
+      "EUR"
+    ],
+    [
+      "Венесуэла",
+      "Venezuela",
+      "USD"
+    ],
+    [
+      "Внешние Малые Острова США",
+      "United States Minor Outlying Islands",
+      "USD"
+    ],
+    [
+      "Восточный Тимор",
+      "East Timor",
+      "USD"
+    ],
+    [
+      "Вьетнам",
+      "Vietnam",
+      "USD"
+    ],
+    [
+      "Габон",
+      "Gabon",
+      "USD"
+    ],
+    [
+      "Гавайи",
+      "Hawaii",
+      "USD"
+    ],
+    [
+      "Гаити",
+      "Haiti",
+      "USD"
+    ],
+    [
+      "Гайана",
+      "Guyana",
+      "USD"
+    ],
+    [
+      "Гамбия",
+      "Gambia, The",
+      "USD"
+    ],
+    [
+      "Гана",
+      "Ghana",
+      "USD"
+    ],
+    [
+      "Гваделупа",
+      "Guadeloupe",
+      "USD"
+    ],
+    [
+      "Гватемала",
+      "Guatemala",
+      "USD"
+    ],
+    [
+      "Гвинея",
+      "Guinea",
+      "USD"
+    ],
+    [
+      "Гвинея-Бисау",
+      "Guinea-Bissau",
+      "USD"
+    ],
+    [
+      "Германия",
+      "Germany",
+      "EUR"
+    ],
+    [
+      "Гернси Остров",
+      "Guernsey",
+      "EUR"
+    ],
+    [
+      "Гибралтар",
+      "Gibraltar",
+      "EUR"
+    ],
+    [
+      "Голландия",
+      "Holland",
+      "EUR"
+    ],
+    [
+      "Гондурас",
+      "Honduras",
+      "USD"
+    ],
+    [
+      "Гонконг",
+      "Hong Kong",
+      "USD"
+    ],
+    [
+      "Гренада",
+      "Grenada",
+      "USD"
+    ],
+    [
+      "Гренландия",
+      "Greenland",
+      "USD"
+    ],
+    [
+      "Греция",
+      "Greece",
+      "EUR"
+    ],
+    [
+      "Грузия",
+      "Georgia",
+      "USD"
+    ],
+    [
+      "Гуам",
+      "Guam",
+      "USD"
+    ],
+    [
+      "Дания",
+      "Denmark",
+      "EUR"
+    ],
+    [
+      "Демократическая республика Конго",
+      "Congo, Democratic Republic",
+      "USD"
+    ],
+    [
+      "Джерси",
+      "Jersey",
+      "EUR"
+    ],
+    [
+      "Джибути",
+      "Djibouti",
+      "USD"
+    ],
+    [
+      "Доминика",
+      "Dominica",
+      "USD"
+    ],
+    [
+      "Доминиканская Республика",
+      "Dominican Republic",
+      "USD"
+    ],
+    [
+      "Египет",
+      "Egypt",
+      "USD"
+    ],
+    [
+      "Замбия",
+      "Zambia",
+      "USD"
+    ],
+    [
+      "Западная Сахара",
+      "Western Sahara",
+      "USD"
+    ],
+    [
+      "Зимбабве",
+      "Zimbabwe",
+      "USD"
+    ],
+    [
+      "Израиль",
+      "Israel",
+      "USD"
+    ],
+    [
+      "Индия",
+      "India",
+      "USD"
+    ],
+    [
+      "Индонезия",
+      "Indonesia",
+      "USD"
+    ],
+    [
+      "Иордания",
+      "Jordan",
+      "USD"
+    ],
+    [
+      "Ирак",
+      "Iraq",
+      "USD"
+    ],
+    [
+      "Иран",
+      "Iran",
+      "USD"
+    ],
+    [
+      "Ирландия",
+      "Ireland",
+      "EUR"
+    ],
+    [
+      "Исландия",
+      "Iceland",
+      "EUR"
+    ],
+    [
+      "Испания",
+      "Spain",
+      "EUR"
+    ],
+    [
+      "Италия",
+      "Italy",
+      "EUR"
+    ],
+    [
+      "Йемен",
+      "Yemen",
+      "USD"
+    ],
+    [
+      "Кабо-Верде",
+      "Cape Verde",
+      "USD"
+    ],
+    [
+      "Казахстан",
+      "Kazakhstan",
+      "KZT"
+    ],
+    [
+      "Каймановы Острова",
+      "Cayman Islands",
+      "USD"
+    ],
+    [
+      "Камбоджа",
+      "Cambodia",
+      "USD"
+    ],
+    [
+      "Камерун",
+      "Cameroon",
+      "USD"
+    ],
+    [
+      "Канада",
+      "Canada",
+      "USD"
+    ],
+    [
+      "Канарские Острова",
+      "Canary Islands",
+      "USD"
+    ],
+    [
+      "Катар",
+      "Qatar",
+      "USD"
+    ],
+    [
+      "Кения",
+      "Kenya",
+      "USD"
+    ],
+    [
+      "Кипр",
+      "Cyprus",
+      "USD"
+    ],
+    [
+      "Кирибати",
+      "Kiribati",
+      "USD"
+    ],
+    [
+      "Китай",
+      "China",
+      "USD"
+    ],
+    [
+      "Кокосовые Острова",
+      "Cocos (Keeling) Islands",
+      "USD"
+    ],
+    [
+      "Колумбия",
+      "Colombia",
+      "USD"
+    ],
+    [
+      "Коморские Острова",
+      "Comoros",
+      "USD"
+    ],
+    [
+      "Косово",
+      "Kosovo",
+      "USD"
+    ],
+    [
+      "Коста-Рика",
+      "Costa Rica",
+      "USD"
+    ],
+    [
+      "Кот-д'Ивуар",
+      "Cote d'Ivoire",
+      "USD"
+    ],
+    [
+      "Куба",
+      "Cuba",
+      "USD"
+    ],
+    [
+      "Кувейт",
+      "Kuwait",
+      "USD"
+    ],
+    [
+      "Кыргызстан",
+      "Kyrgyzstan",
+      "USD"
+    ],
+    [
+      "Лаос",
+      "Laos",
+      "EUR"
+    ],
+    [
+      "Латвия",
+      "Latvia",
+      "EUR"
+    ],
+    [
+      "Лесото",
+      "Lesotho",
+      "USD"
+    ],
+    [
+      "Либерия",
+      "Liberia",
+      "USD"
+    ],
+    [
+      "Ливан",
+      "Lebanon",
+      "USD"
+    ],
+    [
+      "Ливия",
+      "Libya",
+      "USD"
+    ],
+    [
+      "Литва",
+      "Lithuania",
+      "EUR"
+    ],
+    [
+      "Лихтенштейн",
+      "Liechtenstein",
+      "EUR"
+    ],
+    [
+      "Люксембург",
+      "Luxembourg",
+      "EUR"
+    ],
+    [
+      "Маврикий",
+      "Mauritius",
+      "USD"
+    ],
+    [
+      "Мавритания",
+      "Mauritania",
+      "USD"
+    ],
+    [
+      "Мадагаскар",
+      "Madagascar",
+      "USD"
+    ],
+    [
+      "Мадейра",
+      "Madeira",
+      "USD"
+    ],
+    [
+      "Майотта",
+      "Mayotte",
+      "USD"
+    ],
+    [
+      "Макао",
+      "Macau",
+      "USD"
+    ],
+    [
+      "Македония",
+      "Macedonia",
+      "EUR"
+    ],
+    [
+      "Малави",
+      "Malawi",
+      "USD"
+    ],
+    [
+      "Малайзия",
+      "Malaysia",
+      "USD"
+    ],
+    [
+      "Мали",
+      "Mali",
+      "USD"
+    ],
+    [
+      "Мальдивы",
+      "Maldives",
+      "USD"
+    ],
+    [
+      "Мальта",
+      "Malta",
+      "EUR"
+    ],
+    [
+      "Марокко",
+      "Morocco",
+      "USD"
+    ],
+    [
+      "Мартиника",
+      "Martinique",
+      "USD"
+    ],
+    [
+      "Маршалловы Острова",
+      "Marshall Islands",
+      "USD"
+    ],
+    [
+      "Мексика",
+      "Mexico",
+      "USD"
+    ],
+    [
+      "Мелилья",
+      "Melilla",
+      "USD"
+    ],
+    [
+      "Микронезия",
+      "Micronesia, Federated States of",
+      "USD"
+    ],
+    [
+      "Мозамбик",
+      "Mozambique",
+      "USD"
+    ],
+    [
+      "Молдова",
+      "Moldova",
+      "USD"
+    ],
+    [
+      "Монако",
+      "Monaco",
+      "EUR"
+    ],
+    [
+      "Монголия",
+      "Mongolia",
+      "USD"
+    ],
+    [
+      "Монсеррат",
+      "Montserrat",
+      "USD"
+    ],
+    [
+      "Мьянма",
+      "Myanmar",
+      "USD"
+    ],
+    [
+      "Мэн",
+      "Isle of Man",
+      "EUR"
+    ],
+    [
+      "Нагорный Карабах (Арцах)",
+      "Nagorno-Karabakh",
+      "USD"
+    ],
+    [
+      "Намибия",
+      "Namibia",
+      "USD"
+    ],
+    [
+      "Науру",
+      "Nauru",
+      "USD"
+    ],
+    [
+      "Непал",
+      "Nepal",
+      "USD"
+    ],
+    [
+      "Нигер",
+      "Niger",
+      "USD"
+    ],
+    [
+      "Нигерия",
+      "Nigeria",
+      "USD"
+    ],
+    [
+      "Нидерландские Антильские Острова",
+      "Netherlands Antilles",
+      "EUR"
+    ],
+    [
+      "Нидерланды",
+      "Netherlands",
+      "EUR"
+    ],
+    [
+      "Никарагуа",
+      "Nicaragua",
+      "USD"
+    ],
+    [
+      "Ниуэ",
+      "Niue",
+      "USD"
+    ],
+    [
+      "Новая Зеландия",
+      "New Zealand",
+      "USD"
+    ],
+    [
+      "Новая Каледония",
+      "New Caledonia",
+      "USD"
+    ],
+    [
+      "Норвегия",
+      "Norway",
+      "EUR"
+    ],
+    [
+      "Норфолк",
+      "Norfolk Island",
+      "EUR"
+    ],
+    [
+      "Объединенные Арабские Эмираты",
+      "United Arab Emirates",
+      "USD"
+    ],
+    [
+      "Оман",
+      "Oman",
+      "USD"
+    ],
+    [
+      "Остров Святой Елены",
+      "Saint Helena",
+      "USD"
+    ],
+    [
+      "Острова Кука",
+      "Cook Islands",
+      "USD"
+    ],
+    [
+      "Острова Уоллис и Футуна",
+      "Wallis and Futuna",
+      "USD"
+    ],
+    [
+      "Пакистан",
+      "Pakistan",
+      "USD"
+    ],
+    [
+      "Палау",
+      "Palau",
+      "USD"
+    ],
+    [
+      "Палестина",
+      "Palestina",
+      "USD"
+    ],
+    [
+      "Панама",
+      "Panama",
+      "USD"
+    ],
+    [
+      "Папуа - Новая Гвинея",
+      "Papua New Guinea",
+      "USD"
+    ],
+    [
+      "Парагвай",
+      "Paraguay",
+      "USD"
+    ],
+    [
+      "Перу",
+      "Peru",
+      "USD"
+    ],
+    [
+      "Питкэрн",
+      "Pitcairn Islands",
+      "USD"
+    ],
+    [
+      "Польша",
+      "Poland",
+      "EUR"
+    ],
+    [
+      "Португалия",
+      "Portugal",
+      "EUR"
+    ],
+    [
+      "Приднестровье",
+      "Transnistria (Pridnestrovie)",
+      "USD"
+    ],
+    [
+      "Пуэрто-Рико",
+      "Puerto Rico",
+      "USD"
+    ],
+    [
+      "Республика Конго",
+      "Congo, Republic of the",
+      "USD"
+    ],
+    [
+      "Реюньон",
+      "Reunion",
+      "USD"
+    ],
+    [
+      "Рождества Остров",
+      "Christmas Island",
+      "USD"
+    ],
+    [
+      "Россия",
+      "Russia",
+      "USD"
+    ],
+    [
+      "Руанда",
+      "Rwanda",
+      "USD"
+    ],
+    [
+      "Румыния",
+      "Romania",
+      "EUR"
+    ],
+    [
+      "Сальвадор",
+      "El Salvador",
+      "USD"
+    ],
+    [
+      "Самоа",
+      "Samoa",
+      "USD"
+    ],
+    [
+      "Сан-Марино",
+      "San Marino",
+      "EUR"
+    ],
+    [
+      "Сан-Томе и Принсипи",
+      "Sao Tome and Principe",
+      "USD"
+    ],
+    [
+      "Саудовская Аравия",
+      "Saudi Arabia",
+      "USD"
+    ],
+    [
+      "Свазиленд",
+      "Swaziland",
+      "USD"
+    ],
+    [
+      "Свальбард",
+      "Svalbard",
+      "EUR"
+    ],
+    [
+      "Северная Корея",
+      "Korea, North",
+      "USD"
+    ],
+    [
+      "Северные Марианские острова",
+      "Northern Mariana Islands",
+      "USD"
+    ],
+    [
+      "Северный Кипр",
+      "Northern Cyprus",
+      "USD"
+    ],
+    [
+      "Сейшельские Острова",
+      "Seychelles",
+      "USD"
+    ],
+    [
+      "Сен-Пьер и Микелон",
+      "Saint Pierre and Miquelon",
+      "USD"
+    ],
+    [
+      "Сенегал",
+      "Senegal",
+      "USD"
+    ],
+    [
+      "Сент-Винсент и Гренадины",
+      "Saint Vincent and the Grenadines",
+      "USD"
+    ],
+    [
+      "Сент-Китс и Невис",
+      "Saint Kitts and Nevis",
+      "USD"
+    ],
+    [
+      "Сент-Люсия",
+      "Saint Lucia",
+      "USD"
+    ],
+    [
+      "Сербия",
+      "Serbia",
+      "EUR"
+    ],
+    [
+      "Сеута",
+      "Ceuta",
+      "USD"
+    ],
+    [
+      "Сингапур",
+      "Singapore",
+      "USD"
+    ],
+    [
+      "Сирия",
+      "Syria",
+      "USD"
+    ],
+    [
+      "Словакия",
+      "Slovakia",
+      "EUR"
+    ],
+    [
+      "Словения",
+      "Slovenia",
+      "EUR"
+    ],
+    [
+      "СНГ",
+      "CIS",
+      "USD"
+    ],
+    [
+      "Соединенные Штаты Америки",
+      "United States of America",
+      "USD"
+    ],
+    [
+      "Соломоновы Острова",
+      "Solomon Islands",
+      "USD"
+    ],
+    [
+      "Сомали",
+      "Somalia",
+      "USD"
+    ],
+    [
+      "Сомалиленд",
+      "Somaliland",
+      "USD"
+    ],
+    [
+      "Судан",
+      "Sudan",
+      "USD"
+    ],
+    [
+      "Суринам",
+      "Suriname",
+      "USD"
+    ],
+    [
+      "Сьерра-Леоне",
+      "Sierra Leone",
+      "USD"
+    ],
+    [
+      "Таджикистан",
+      "Tajikistan",
+      "USD"
+    ],
+    [
+      "Таиланд",
+      "Thailand",
+      "USD"
+    ],
+    [
+      "Тайвань",
+      "Taiwan",
+      "USD"
+    ],
+    [
+      "Тамил-Илам",
+      "Tamil Nadu",
+      "USD"
+    ],
+    [
+      "Танзания",
+      "Tanzania",
+      "USD"
+    ],
+    [
+      "Теркс и Кайкос",
+      "Turks and Caicos Islands",
+      "USD"
+    ],
+    [
+      "Того",
+      "Togo",
+      "USD"
+    ],
+    [
+      "Токелау (Юнион)",
+      "Tokelau",
+      "USD"
+    ],
+    [
+      "Тонга",
+      "Tonga",
+      "USD"
+    ],
+    [
+      "Тринидад и Тобаго",
+      "Trinidad and Tobago",
+      "USD"
+    ],
+    [
+      "Тувалу",
+      "Tuvalu",
+      "USD"
+    ],
+    [
+      "Тунис",
+      "Tunisia",
+      "USD"
+    ],
+    [
+      "Туркменистан",
+      "Turkmenistan",
+      "USD"
+    ],
+    [
+      "Турция",
+      "Turkey",
+      "USD"
+    ],
+    [
+      "Уганда",
+      "Uganda",
+      "USD"
+    ],
+    [
+      "Узбекистан",
+      "Uzbekistan",
+      "USD"
+    ],
+    [
+      "Украина",
+      "Ukraine",
+      "USD"
+    ],
+    [
+      "Уругвай",
+      "Uruguay",
+      "USD"
+    ],
+    [
+      "Фарерские Острова",
+      "Faroe Islands",
+      "USD"
+    ],
+    [
+      "Фиджи",
+      "Fiji",
+      "USD"
+    ],
+    [
+      "Филиппины",
+      "Philippines",
+      "USD"
+    ],
+    [
+      "Финляндия",
+      "Finland",
+      "EUR"
+    ],
+    [
+      "Фолклендские Острова",
+      "Falkland Islands (Islas Malvinas)",
+      "USD"
+    ],
+    [
+      "Франция",
+      "France",
+      "EUR"
+    ],
+    [
+      "Французская Гвиана",
+      "French Guiana",
+      "USD"
+    ],
+    [
+      "Французская Полинезия",
+      "French Polynesia",
+      "USD"
+    ],
+    [
+      "Французские Южные Территории",
+      "French Southern and Antarctic Lands",
+      "USD"
+    ],
+    [
+      "Хорватия",
+      "Croatia",
+      "EUR"
+    ],
+    [
+      "Центральноафриканская Республика",
+      "Central African Republic",
+      "USD"
+    ],
+    [
+      "Чад",
+      "Chad",
+      "USD"
+    ],
+    [
+      "Черногория",
+      "Montenegro",
+      "EUR"
+    ],
+    [
+      "Чехия",
+      "Czech",
+      "EUR"
+    ],
+    [
+      "Чили",
+      "Chile",
+      "USD"
+    ],
+    [
+      "Швейцария",
+      "Switzerland",
+      "EUR"
+    ],
+    [
+      "Швеция",
+      "Sweden",
+      "EUR"
+    ],
+    [
+      "Шенген",
+      "Schengen",
+      "EUR"
+    ],
+    [
+      "Шри-Ланка",
+      "Sri Lanka",
+      "USD"
+    ],
+    [
+      "Эквадор",
+      "Ecuador",
+      "USD"
+    ],
+    [
+      "Экваториальная Гвинея",
+      "Equatorial Guinea",
+      "USD"
+    ],
+    [
+      "Эритрея",
+      "Eritrea",
+      "USD"
+    ],
+    [
+      "Эстония",
+      "Estonia",
+      "EUR"
+    ],
+    [
+      "Эфиопия",
+      "Ethiopia",
+      "USD"
+    ],
+    [
+      "Южная Георгия и Южные Сандвичевы Острова",
+      "South Georgia and the South Sandwich Islands",
+      "EUR"
+    ],
+    [
+      "Южная Корея",
+      "Korea, South",
+      "USD"
+    ],
+    [
+      "Южная Осетия",
+      "South Ossetia",
+      "USD"
+    ],
+    [
+      "Южно-Африканская Республика",
+      "South Africa",
+      "USD"
+    ],
+    [
+      "Ямайка",
+      "Jamaica",
+      "USD"
+    ],
+    [
+      "Япония",
+      "Japan",
+      "USD"
+    ]
+  ],
+  "dictname": "countries"
+}
