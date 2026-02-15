@@ -6,16 +6,109 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Dict
 import logging
+import re
 
 import httpx
+from sqlalchemy import func
 
 from app.queue.celery_app import celery_app
 from app.core.config import settings
 from db.setup import SessionLocal
-from db.models import DispatchJob, DispatchJobStatus
+from db.models import DispatchJob, DispatchJobStatus, Pilgrim
 from app.services.partner_payload_builder import build_partner_payload
+from app.services.document_rules import normalize_document
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_tour_code(response: httpx.Response) -> str:
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+
+    if isinstance(payload, dict):
+        status_value = payload.get("status")
+        if status_value is not None:
+            try:
+                if int(status_value) != 200:
+                    return ""
+            except (TypeError, ValueError):
+                return ""
+
+        raw_value = payload.get("string")
+        if raw_value is not None:
+            return str(raw_value).strip()
+
+    text = response.text or ""
+    has_ok_status = re.search(r'"status"\s*:\s*"?200"?', text)
+    match = re.search(r'"string"\s*:\s*"([^"]+)"', text)
+    if has_ok_status and match:
+        return match.group(1).strip()
+
+    # Fallback for legacy responses where only `string` is present.
+    match = re.search(r'"string"\s*:\s*"([^"]+)"', text)
+    if match:
+        return match.group(1).strip()
+
+    return ""
+
+
+def _find_pilgrim(
+    db,
+    tour_id: str | None,
+    item_meta: Dict[str, Any],
+) -> Pilgrim | None:
+    if not tour_id:
+        return None
+
+    document = normalize_document(str(item_meta.get("document") or "").strip().upper())
+    if document:
+        by_document = (
+            db.query(Pilgrim)
+            .filter(
+                Pilgrim.tour_id == tour_id,
+                func.upper(func.coalesce(Pilgrim.document, "")) == document,
+            )
+            .first()
+        )
+        if by_document:
+            return by_document
+
+    surname = str(item_meta.get("surname") or "").strip().upper()
+    name = str(item_meta.get("name") or "").strip().upper()
+    if not surname and not name:
+        return None
+
+    query = db.query(Pilgrim).filter(Pilgrim.tour_id == tour_id)
+    if surname:
+        query = query.filter(Pilgrim.surname == surname)
+    if name:
+        query = query.filter(Pilgrim.name == name)
+
+    return query.order_by(Pilgrim.created_at.asc()).first()
+
+
+def _save_tour_code_for_item(
+    db,
+    tour_id: str | None,
+    item_meta: Dict[str, Any],
+    tour_code: str,
+) -> None:
+    if not tour_code:
+        return
+
+    pilgrim = _find_pilgrim(db, tour_id=tour_id, item_meta=item_meta)
+    if pilgrim is None:
+        logger.warning(
+            "Tour code received but pilgrim not found: tour_id=%s, meta=%s, tour_code=%s",
+            tour_id,
+            item_meta,
+            tour_code,
+        )
+        return
+
+    pilgrim.tour_code = tour_code
 
 
 @celery_app.task(bind=True, name="dispatch.process_job", max_retries=100)
@@ -68,12 +161,22 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 if response.status_code >= 400:
                     raise RuntimeError(f"HTTP {response.status_code}: {response.text}")
 
+                item_meta = item.get("meta") or {}
+                tour_code = _extract_tour_code(response)
+                _save_tour_code_for_item(
+                    db,
+                    tour_id=str(job.tour_id) if job.tour_id else None,
+                    item_meta=item_meta,
+                    tour_code=tour_code,
+                )
+
                 responses.append(
                     {
                         "index": idx,
-                        "meta": item.get("meta") or {},
+                        "meta": item_meta,
                         "status_code": response.status_code,
                         "text": response.text[:4000],
+                        "tour_code": tour_code,
                     }
                 )
 
