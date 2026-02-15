@@ -46,6 +46,8 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/hickmet
       REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
       APP_ENV: production
       DEBUG: "False"
       HOST: 0.0.0.0
@@ -73,9 +75,10 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/hickmet
       REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
       APP_ENV: production
       DEBUG: "False"
-      DISPATCH_CLIENT_NAME_TEMPLATE: Client_$$CID
     depends_on:
       postgres:
         condition: service_healthy
