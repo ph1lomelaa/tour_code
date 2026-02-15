@@ -55,21 +55,13 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
 
-    # Dispatch queue / broker
-    DISPATCH_DRY_RUN: bool = False
-    # test | prod | auto
-    DISPATCH_PLATFORM_MODE: str = "auto"
-    # JSON endpoint (test platform: http://test.fondkamkor.kz)
-    DISPATCH_TARGET_URL: str = ""
-    # Legacy auth/save URLs (kept for backward compatibility in env only)
-    DISPATCH_AUTH_URL: str = ""
-    DISPATCH_SAVE_URL: str = ""
+    # Dispatch
+    DISPATCH_TARGET_URL: str = ""  # http://test.fondkamkor.kz или https://fondkamkor.kz
     DISPATCH_REQUEST_TIMEOUT_SECONDS: int = 30
     DISPATCH_MAX_ATTEMPTS: int = 5
     DISPATCH_RETRY_DELAY_SECONDS: int = 60
-    DISPATCH_QUEUE_NAME: str = "tour_dispatch"
 
-    # External payload defaults
+    # External payload constants
     DISPATCH_MODULE: str = "voucher"
     DISPATCH_SECTION: str = "partner"
     DISPATCH_OBJECT: str = "queries"
@@ -77,39 +69,26 @@ class Settings(BaseSettings):
     DISPATCH_PARAM2: str = "save"
     DISPATCH_FORM_ID: int = 163
     DISPATCH_RETURN_FIELD: str = "q_number"
-    DISPATCH_AGENT_LOGIN: str = ""
-    DISPATCH_AGENT_PASS: str = ""
-    DISPATCH_TOURAGENT_NAME: str = "ADIYA TRAVEL"
-    DISPATCH_TOURAGENT_BIN: str = ""
+
+    # Auth (меняются через env для test/prod)
+    DISPATCH_AGENT_LOGIN: str = "test"
+    DISPATCH_AGENT_PASS: str = "test"
+
+    # Business defaults
+    DISPATCH_TOURAGENT_NAME: str = "HICKMET PREMIUM"
+    DISPATCH_TOURAGENT_BIN: str = "240340000277"
     DISPATCH_DEFAULT_AIRLINE: str = "KC"
     DISPATCH_DEFAULT_DOC_PRODUCTION: str = "Ministry Of Internal Affairs"
-    DISPATCH_DEFAULT_DOC_TYPE: str = "паспорт"
-    DISPATCH_DEFAULT_DOC_DATE: str = "02.11.2016"
-    DISPATCH_DEFAULT_RESIDENT: str = "резидент"
+    DISPATCH_DEFAULT_DOC_DATE: str = ""
     DISPATCH_DEFAULT_BIRTH_DATE: str = "01.01.1970"
     DISPATCH_CLIENT_NAME_TEMPLATE: str = "Client_$CID"
 
-    # Form fields for partner queries/163/save
-    DISPATCH_FILIAL_ID: str = ""
-    DISPATCH_FIRM_ID: str = ""
-    DISPATCH_FIRM_NAME: str = ""
-    DISPATCH_Q_INTERNAL: str = "1"
-    DISPATCH_Q_AGENT_ASSIGN: str = "0"
-    DISPATCH_Q_CURRENCY: str = "MRP"
-    DISPATCH_Q_NUMBER_TEMPLATE: str = ""
-    DISPATCH_OFFER_COUNTER: int = 0
-
-    # Auth form details
-    DISPATCH_AUTH_JUMP2: str = "/Voucher/partner/home"
-    DISPATCH_AUTH_SUBMIT: str = "Вход"
+    # HTTP
     DISPATCH_USER_AGENT: str = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0"
     )
-    DISPATCH_ORIGIN: str = "https://report.fondkamkor.kz"
-    DISPATCH_AUTH_REFERER: str = "https://report.fondkamkor.kz/Voucher/partner/auth"
-    DISPATCH_SAVE_REFERER: str = "https://report.fondkamkor.kz/Voucher/partner/addquery/touroperator"
 
 # Создаём глобальный instance настроек
 settings = Settings()
