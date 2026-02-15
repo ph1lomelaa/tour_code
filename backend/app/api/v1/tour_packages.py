@@ -381,9 +381,14 @@ def add_pilgrim_to_tour(
     if document:
         existing = (
             db.query(Pilgrim)
-            .filter(Pilgrim.tour_id == tour.id, func.upper(func.coalesce(Pilgrim.document, "")) == document)
+            .filter(func.upper(func.trim(func.coalesce(Pilgrim.document, ""))) == document)
             .first()
         )
+        if existing and str(existing.tour_id) != str(tour.id):
+            raise HTTPException(
+                status_code=409,
+                detail="Паломник с таким номером паспорта уже существует в другом туре",
+            )
     if existing is None:
         existing = (
             db.query(Pilgrim)
@@ -391,7 +396,7 @@ def add_pilgrim_to_tour(
                 Pilgrim.tour_id == tour.id,
                 Pilgrim.surname == surname,
                 Pilgrim.name == name,
-                func.upper(func.coalesce(Pilgrim.document, "")) == document,
+                func.upper(func.trim(func.coalesce(Pilgrim.document, ""))) == document,
             )
             .first()
         )

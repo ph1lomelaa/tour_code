@@ -49,6 +49,51 @@ def _apply_lightweight_migrations() -> None:
         if "tour_code" not in columns:
             conn.execute(text("ALTER TABLE pilgrims ADD COLUMN tour_code VARCHAR(64)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pilgrims_tour_code ON pilgrims (tour_code)"))
+        _deduplicate_pilgrims_by_document(conn)
+        conn.execute(
+            text(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_pilgrims_document_norm
+                ON pilgrims (UPPER(TRIM(document)))
+                WHERE document IS NOT NULL AND TRIM(document) <> ''
+                """
+            )
+        )
+
+
+def _deduplicate_pilgrims_by_document(conn) -> None:
+    rows = conn.execute(
+        text(
+            """
+            SELECT id, document, tour_code, created_at
+            FROM pilgrims
+            WHERE document IS NOT NULL AND TRIM(document) <> ''
+            ORDER BY
+                UPPER(TRIM(document)) ASC,
+                CASE WHEN COALESCE(tour_code, '') <> '' THEN 0 ELSE 1 END ASC,
+                created_at ASC,
+                id ASC
+            """
+        )
+    ).mappings().all()
+
+    seen_documents: set[str] = set()
+    duplicate_ids: list[str] = []
+
+    for row in rows:
+        normalized_document = str(row["document"] or "").strip().upper()
+        if not normalized_document:
+            continue
+        if normalized_document in seen_documents:
+            duplicate_ids.append(str(row["id"]))
+            continue
+        seen_documents.add(normalized_document)
+
+    for duplicate_id in duplicate_ids:
+        conn.execute(text("DELETE FROM pilgrims WHERE id = :id"), {"id": duplicate_id})
+
+    if duplicate_ids:
+        logger.warning("Removed %s duplicate pilgrims by document before unique index", len(duplicate_ids))
 
 
 def check_connection() -> bool:

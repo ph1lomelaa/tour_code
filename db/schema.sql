@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS pilgrims (
     name            VARCHAR(100) NOT NULL,
     document        VARCHAR(50),                   -- c_doc_number
     package_name    VARCHAR(255),                  -- "17.02-24.02 NIYET"
+    tour_code       VARCHAR(64),
     created_at      TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -98,6 +99,10 @@ CREATE INDEX IF NOT EXISTS ix_pilgrims_tour       ON pilgrims (tour_id);
 CREATE INDEX IF NOT EXISTS ix_pilgrims_surname    ON pilgrims (surname);
 CREATE INDEX IF NOT EXISTS ix_pilgrims_name       ON pilgrims (name);
 CREATE INDEX IF NOT EXISTS ix_pilgrims_document   ON pilgrims (document);
+CREATE INDEX IF NOT EXISTS ix_pilgrims_tour_code  ON pilgrims (tour_code);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_pilgrims_document_norm
+    ON pilgrims (UPPER(TRIM(document)))
+    WHERE document IS NOT NULL AND TRIM(document) <> '';
 CREATE INDEX IF NOT EXISTS ix_pilgrims_package    ON pilgrims (package_name);
 
 

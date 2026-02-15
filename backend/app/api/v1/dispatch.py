@@ -7,7 +7,8 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import desc
+from sqlalchemy import desc, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -134,12 +135,26 @@ def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
 
     # --- Pilgrims ---
     def _add_pilgrims(persons: List[DispatchPerson]):
+        seen_documents: set[str] = set()
         for p in persons:
+            normalized_document = normalize_document((p.document or "").strip().upper()) or None
+            if normalized_document:
+                if normalized_document in seen_documents:
+                    continue
+                exists_by_document = (
+                    db.query(Pilgrim.id)
+                    .filter(func.upper(func.trim(func.coalesce(Pilgrim.document, ""))) == normalized_document)
+                    .first()
+                )
+                if exists_by_document is not None:
+                    continue
+                seen_documents.add(normalized_document)
+
             pilgrim = Pilgrim(
                 tour_id=tour.id,
                 surname=(p.surname or "").strip().upper(),
                 name=(p.name or "").strip().upper(),
-                document=normalize_document((p.document or "").strip().upper()) or None,
+                document=normalized_document,
                 package_name=p.package_name or None,
                 tour_code=None,
             )
@@ -279,6 +294,9 @@ def enqueue_dispatch_job(request: DispatchEnqueueRequest, db: Session = Depends(
 
     except HTTPException:
         raise
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Паломник с таким номером паспорта уже существует")
     except Exception as e:
         logger.error("Ошибка enqueue dispatch job: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Не удалось поставить задачу в очередь: {e}")

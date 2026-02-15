@@ -68,12 +68,21 @@ def _find_pilgrim(
             db.query(Pilgrim)
             .filter(
                 Pilgrim.tour_id == tour_id,
-                func.upper(func.coalesce(Pilgrim.document, "")) == document,
+                func.upper(func.trim(func.coalesce(Pilgrim.document, ""))) == document,
             )
             .first()
         )
         if by_document:
             return by_document
+
+        by_document_global = (
+            db.query(Pilgrim)
+            .filter(func.upper(func.trim(func.coalesce(Pilgrim.document, ""))) == document)
+            .order_by(Pilgrim.created_at.asc())
+            .first()
+        )
+        if by_document_global:
+            return by_document_global
 
     surname = str(item_meta.get("surname") or "").strip().upper()
     name = str(item_meta.get("name") or "").strip().upper()
