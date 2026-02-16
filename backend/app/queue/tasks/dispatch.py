@@ -363,10 +363,9 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 if not save_url:
                     raise RuntimeError("DISPATCH_SAVE_URL is not configured")
 
-                auth_host = urlsplit(auth_url).hostname
-                if auth_host:
-                    # Partner flow often expects language cookie to keep authorized partner session.
-                    client.cookies.set("lg", "ru", domain=auth_host, path="/")
+                # Partner flow often expects language cookie to keep authorized partner session.
+                # Set cookie without explicit domain to let httpx handle it automatically
+                client.cookies.set("lg", "ru")
 
                 auth_response = client.post(auth_url, data=auth_payload, headers=_build_auth_headers())
                 if auth_response.status_code >= 400:
