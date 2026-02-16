@@ -421,6 +421,12 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
 
                 item_meta = item.get("meta") or {}
                 business_error = _extract_business_error(response)
+
+                # DEBUG: Check if guest page for first item
+                if idx == 0:
+                    is_guest = _is_guest_page(response.text or "")
+                    logger.info(f"📄 Is guest page: {is_guest}, Response preview: {response.text[:500]}")
+
                 if mode == "partner_form" and not business_error and _is_guest_page(response.text or ""):
                     business_error = "Unauthorized session (guest)"
                 item_error_message = business_error
