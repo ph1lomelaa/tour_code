@@ -62,7 +62,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=False)
-    role = Column(_enum_type(UserRole, "user_role"), nullable=False, default=UserRole.OPERATOR)
+    role = Column(_enum_type(UserRole, "userrole"), nullable=False, default=UserRole.OPERATOR)
     is_active = Column(Boolean, default=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -107,7 +107,7 @@ class Tour(Base):
     manifest_filename = Column(String(255), nullable=True)
 
     # Статус
-    status = Column(_enum_type(TourStatus, "tour_status"), default=TourStatus.DRAFT, index=True)
+    status = Column(_enum_type(TourStatus, "tourstatus"), default=TourStatus.DRAFT, index=True)
 
     # Кто создал
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
@@ -185,7 +185,7 @@ class DispatchJob(Base):
     tour_id = Column(String(36), ForeignKey("tours.id", ondelete="SET NULL"),
                      nullable=True, index=True)
 
-    status = Column(_enum_type(DispatchJobStatus, "dispatch_job_status"), nullable=False,
+    status = Column(_enum_type(DispatchJobStatus, "dispatchjobstatus"), nullable=False,
                     default=DispatchJobStatus.DRAFT, index=True)
 
     payload = Column(JSON, nullable=False)                             # снимок формы
