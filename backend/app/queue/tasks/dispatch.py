@@ -364,18 +364,26 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                     raise RuntimeError("DISPATCH_SAVE_URL is not configured")
 
                 # Partner flow often expects language cookie to keep authorized partner session.
-                # Set cookie without explicit domain to let httpx handle it automatically
-                client.cookies.set("lg", "ru")
+                # Set lg cookie before auth (like in curl: -b "lg=ru; tsagent=")
+                auth_headers = _build_auth_headers()
+                auth_headers["Cookie"] = "lg=ru; tsagent="
 
-                auth_response = client.post(auth_url, data=auth_payload, headers=_build_auth_headers())
+                auth_response = client.post(auth_url, data=auth_payload, headers=auth_headers)
                 if auth_response.status_code >= 400:
                     raise RuntimeError(f"Auth HTTP {auth_response.status_code}: {auth_response.text[:500]}")
 
+                # Extract cookies from response
                 # DEBUG: Log all cookies after auth
                 logger.info(f"🍪 Cookies after auth: {dict(client.cookies)}")
+                logger.info(f"🍪 Response cookies: {auth_response.cookies}")
 
-                if not client.cookies.get("tsagent"):
+                if not client.cookies.get("tsagent") and not auth_response.cookies.get("tsagent"):
                     raise RuntimeError("Auth failed: tsagent cookie was not set")
+
+                # Build cookie string for subsequent requests
+                tsagent = client.cookies.get("tsagent") or auth_response.cookies.get("tsagent")
+                cookie_str = f"lg=ru; tsagent={tsagent}"
+                logger.info(f"🍪 Cookie string for save requests: {cookie_str}")
 
                 job.response_payload = {
                     "mode": mode,
@@ -392,6 +400,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 }
                 db.commit()
                 save_headers = _build_save_headers()
+                save_headers["Cookie"] = cookie_str
             else:
                 save_url = settings.DISPATCH_TARGET_URL
                 if not save_url:
