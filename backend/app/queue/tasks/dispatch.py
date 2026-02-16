@@ -371,6 +371,10 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 auth_response = client.post(auth_url, data=auth_payload, headers=_build_auth_headers())
                 if auth_response.status_code >= 400:
                     raise RuntimeError(f"Auth HTTP {auth_response.status_code}: {auth_response.text[:500]}")
+
+                # DEBUG: Log all cookies after auth
+                logger.info(f"🍪 Cookies after auth: {dict(client.cookies)}")
+
                 if not client.cookies.get("tsagent"):
                     raise RuntimeError("Auth failed: tsagent cookie was not set")
 
@@ -402,6 +406,10 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
             for item in json_items:
                 idx = int(item.get("index") or 0)
                 payload = item.get("payload") or {}
+
+                # DEBUG: Log cookies before first save request
+                if idx == 0:
+                    logger.info(f"🍪 Cookies before save (item {idx}): {dict(client.cookies)}")
 
                 if mode == "partner_form":
                     response = client.post(save_url, data=payload, headers=save_headers)
