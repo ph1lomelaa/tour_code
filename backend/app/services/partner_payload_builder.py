@@ -163,8 +163,6 @@ def build_partner_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         matched = []
 
     base_input = _build_base_input(snapshot)
-    use_partner_form_flow = bool(settings.DISPATCH_AUTH_URL and settings.DISPATCH_SAVE_URL)
-
     json_items: List[Dict[str, Any]] = []
     for index, pilgrim in enumerate(matched):
         if not isinstance(pilgrim, dict):
@@ -177,16 +175,10 @@ def build_partner_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
 
         single_input = dict(base_input)
         single_input.update(_build_client_block({**pilgrim, "document": normalized_document}))
-
-        if use_partner_form_flow:
-            payload = single_input
-        else:
-            # test.fondkamkor.kz json endpoint is strict for empty values.
-            payload = _build_json_envelope(_drop_empty_values(single_input))
         json_items.append(
             {
                 "index": index,
-                "payload": payload,
+                "payload": single_input,
                 "meta": {
                     "pilgrim_id": str(pilgrim.get("pilgrim_id") or "").strip(),
                     "surname": str(pilgrim.get("surname") or "").strip(),
@@ -197,12 +189,9 @@ def build_partner_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     result: Dict[str, Any] = {
-        "mode": "partner_form" if use_partner_form_flow else "json_envelope",
+        "mode": "partner_form",
         "json_items": json_items,
-    }
-
-    if use_partner_form_flow:
-        result["auth"] = {
+        "auth": {
             "url": settings.DISPATCH_AUTH_URL,
             "payload": {
                 "agentlogin": settings.DISPATCH_AGENT_LOGIN,
@@ -210,9 +199,10 @@ def build_partner_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
                 "jump2": settings.DISPATCH_AUTH_JUMP2,
                 "submit": settings.DISPATCH_AUTH_SUBMIT,
             },
-        }
-        result["save"] = {
+        },
+        "save": {
             "url": settings.DISPATCH_SAVE_URL,
-        }
+        },
+    }
 
     return result

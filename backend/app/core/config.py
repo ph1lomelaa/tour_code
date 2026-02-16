@@ -57,7 +57,7 @@ class Settings(BaseSettings):
 
     # Dispatch
     DISPATCH_DRY_RUN: bool = False
-    DISPATCH_TARGET_URL: str = ""  # http://test.fondkamkor.kz или https://fondkamkor.kz
+    DISPATCH_TARGET_URL: str = ""  # Deprecated: текущий поток использует DISPATCH_AUTH_URL + DISPATCH_SAVE_URL
     DISPATCH_AUTH_URL: str = ""
     DISPATCH_SAVE_URL: str = ""
     DISPATCH_REQUEST_TIMEOUT_SECONDS: int = 30

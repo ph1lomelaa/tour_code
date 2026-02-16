@@ -324,7 +324,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
         if not json_items:
             raise RuntimeError("No pilgrims to dispatch")
 
-        mode = str(prepared.get("mode") or "json_envelope").strip()
+        mode = "partner_form"
         auth_data = (prepared.get("auth") or {}) if isinstance(prepared.get("auth"), dict) else {}
         save_data = (prepared.get("save") or {}) if isinstance(prepared.get("save"), dict) else {}
 
@@ -346,78 +346,66 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
         db.commit()
 
         with httpx.Client(timeout=settings.DISPATCH_REQUEST_TIMEOUT_SECONDS, follow_redirects=True) as client:
-            if mode == "partner_form":
-                auth_url = str(auth_data.get("url") or settings.DISPATCH_AUTH_URL).strip()
-                save_url = str(save_data.get("url") or settings.DISPATCH_SAVE_URL).strip()
-                auth_payload = auth_data.get("payload") if isinstance(auth_data.get("payload"), dict) else {}
-                if not auth_payload:
-                    auth_payload = {
-                        "agentlogin": settings.DISPATCH_AGENT_LOGIN,
-                        "agentpass": settings.DISPATCH_AGENT_PASS,
-                        "jump2": settings.DISPATCH_AUTH_JUMP2,
-                        "submit": settings.DISPATCH_AUTH_SUBMIT,
-                    }
-
-                if not auth_url:
-                    raise RuntimeError("DISPATCH_AUTH_URL is not configured")
-                if not save_url:
-                    raise RuntimeError("DISPATCH_SAVE_URL is not configured")
-
-                # Partner flow requires lg cookie BEFORE auth
-                # Send lg cookie in auth request (like curl: -b "lg=ru; tsagent=")
-                auth_cookies = {"lg": "ru", "tsagent": ""}
-                auth_response = client.post(
-                    auth_url,
-                    data=auth_payload,
-                    headers=_build_auth_headers(),
-                    cookies=auth_cookies
-                )
-                if auth_response.status_code >= 400:
-                    raise RuntimeError(f"Auth HTTP {auth_response.status_code}: {auth_response.text[:500]}")
-
-                # DEBUG: Log all cookies after auth
-                logger.info(f"🍪 Cookies after auth: {dict(client.cookies)}")
-                logger.info(f"🍪 Response cookies: {auth_response.cookies}")
-
-                # Extract tsagent from response
-                tsagent = None
-                for cookie in auth_response.cookies.jar:
-                    if cookie.name == "tsagent":
-                        tsagent = cookie.value
-                        break
-
-                if not tsagent and not client.cookies.get("tsagent"):
-                    raise RuntimeError("Auth failed: tsagent cookie was not set")
-
-                tsagent = tsagent or client.cookies.get("tsagent")
-                logger.info(f"🔑 Using tsagent: {tsagent}")
-
-                job.response_payload = {
-                    "mode": mode,
-                    "stage": "auth",
-                    "auth_url": auth_url,
-                    "save_url": save_url,
-                    "auth_status_code": auth_response.status_code,
-                    "json_items_total": total_items,
-                    "json_items_sent": 0,
-                    "progress": {
-                        "total_items": total_items,
-                        "sent_items": 0,
-                    },
+            auth_url = str(auth_data.get("url") or settings.DISPATCH_AUTH_URL).strip()
+            save_url = str(save_data.get("url") or settings.DISPATCH_SAVE_URL).strip()
+            auth_payload = auth_data.get("payload") if isinstance(auth_data.get("payload"), dict) else {}
+            if not auth_payload:
+                auth_payload = {
+                    "agentlogin": settings.DISPATCH_AGENT_LOGIN,
+                    "agentpass": settings.DISPATCH_AGENT_PASS,
+                    "jump2": settings.DISPATCH_AUTH_JUMP2,
+                    "submit": settings.DISPATCH_AUTH_SUBMIT,
                 }
-                db.commit()
-                save_headers = _build_save_headers()
-                # Store cookies for save requests
-                save_cookies = {"lg": "ru", "tsagent": tsagent}
-            else:
-                save_url = settings.DISPATCH_TARGET_URL
-                if not save_url:
-                    raise RuntimeError("DISPATCH_TARGET_URL is not configured")
-                save_headers = {
-                    "Content-Type": "application/json",
-                    "User-Agent": settings.DISPATCH_USER_AGENT,
-                    "Accept": "application/json,text/plain,*/*",
-                }
+
+            if not auth_url:
+                raise RuntimeError("DISPATCH_AUTH_URL is not configured")
+            if not save_url:
+                raise RuntimeError("DISPATCH_SAVE_URL is not configured")
+
+            # Match manual curl flow: auth with lg=ru cookie and empty tsagent.
+            auth_cookies = {"lg": "ru", "tsagent": ""}
+            auth_response = client.post(
+                auth_url,
+                data=auth_payload,
+                headers=_build_auth_headers(),
+                cookies=auth_cookies
+            )
+            if auth_response.status_code >= 400:
+                raise RuntimeError(f"Auth HTTP {auth_response.status_code}: {auth_response.text[:500]}")
+
+            # DEBUG: Log all cookies after auth
+            logger.info(f"🍪 Cookies after auth: {dict(client.cookies)}")
+            logger.info(f"🍪 Response cookies: {auth_response.cookies}")
+
+            # Extract tsagent from response
+            tsagent = None
+            for cookie in auth_response.cookies.jar:
+                if cookie.name == "tsagent":
+                    tsagent = cookie.value
+                    break
+
+            if not tsagent and not client.cookies.get("tsagent"):
+                raise RuntimeError("Auth failed: tsagent cookie was not set")
+
+            tsagent = tsagent or client.cookies.get("tsagent")
+            logger.info(f"🔑 Using tsagent: {tsagent}")
+
+            job.response_payload = {
+                "mode": mode,
+                "stage": "auth",
+                "auth_url": auth_url,
+                "save_url": save_url,
+                "auth_status_code": auth_response.status_code,
+                "json_items_total": total_items,
+                "json_items_sent": 0,
+                "progress": {
+                    "total_items": total_items,
+                    "sent_items": 0,
+                },
+            }
+            db.commit()
+            save_headers = _build_save_headers()
+            save_cookies = {"lg": "ru", "tsagent": tsagent}
 
             for item in json_items:
                 idx = int(item.get("index") or 0)
@@ -426,13 +414,9 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 # DEBUG: Log cookies before first save request
                 if idx == 0:
                     logger.info(f"🍪 Cookies before save (item {idx}): {dict(client.cookies)}")
-                    if mode == "partner_form":
-                        logger.info(f"🍪 Save cookies: {save_cookies}")
+                    logger.info(f"🍪 Save cookies: {save_cookies}")
 
-                if mode == "partner_form":
-                    response = client.post(save_url, data=payload, headers=save_headers, cookies=save_cookies)
-                else:
-                    response = client.post(save_url, json=payload, headers=save_headers)
+                response = client.post(save_url, data=payload, headers=save_headers, cookies=save_cookies)
 
                 if response.status_code >= 400:
                     raise RuntimeError(f"HTTP {response.status_code}: {response.text}")
@@ -445,7 +429,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                     is_guest = _is_guest_page(response.text or "")
                     logger.info(f"📄 Is guest page: {is_guest}, Response preview: {response.text[:500]}")
 
-                if mode == "partner_form" and not business_error and _is_guest_page(response.text or ""):
+                if not business_error and _is_guest_page(response.text or ""):
                     business_error = "Unauthorized session (guest)"
                 item_error_message = business_error
                 created_query_id = ""
@@ -454,7 +438,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 query_view_text = ""
 
                 tour_code = "" if business_error else _extract_tour_code(response)
-                if mode == "partner_form" and not business_error:
+                if not business_error:
                     created_query_id = _extract_created_query_id(response)
                     if created_query_id:
                         query_view_url = _build_query_view_url(save_url, created_query_id)
@@ -477,7 +461,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                                     or f"View HTTP {query_view_response.status_code}"
                                 )
 
-                if mode == "partner_form" and created_query_id and not tour_code and not item_error_message:
+                if created_query_id and not tour_code and not item_error_message:
                     item_error_message = "Created query but q_number was not found in view response"
 
                 if tour_code:
