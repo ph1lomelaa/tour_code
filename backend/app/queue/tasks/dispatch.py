@@ -362,23 +362,13 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
             if not save_url:
                 raise RuntimeError("DISPATCH_SAVE_URL is not configured")
 
-            # Extract domain from auth URL for cookie setting
-            parsed_auth_url = urlsplit(auth_url)
-            # Use domain WITHOUT leading dot to match server's Set-Cookie format
-            cookie_domain = parsed_auth_url.netloc if parsed_auth_url.netloc else None
-
-            # Set initial lg cookie (don't set tsagent - server will set it during auth)
-            if cookie_domain:
-                client.cookies.set("lg", "ru", domain=cookie_domain)
-                logger.info(f"🔧 Set initial lg cookie for domain: {cookie_domain}")
-            else:
-                # Fallback: let httpx manage cookies automatically
-                logger.warning("Could not extract domain from auth URL, cookies will be managed automatically")
-
+            # Use explicit cookies like in working version
+            auth_cookies = {"lg": "ru"}
             auth_response = client.post(
                 auth_url,
                 data=auth_payload,
                 headers=_build_auth_headers(),
+                cookies=auth_cookies
             )
             if auth_response.status_code >= 400:
                 raise RuntimeError(f"Auth HTTP {auth_response.status_code}: {auth_response.text[:500]}")
@@ -388,17 +378,17 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
             if "Invalid username or password" in auth_text:
                 raise RuntimeError(f"Auth failed: Invalid credentials in .env file")
 
-            # DEBUG: Log all cookies after auth
-            logger.info(f"🍪 All cookies in jar after auth: {dict(client.cookies)}")
-            logger.info(f"🍪 Response set these cookies: {dict(auth_response.cookies)}")
+            # Extract tsagent from response cookies
+            tsagent = None
+            for cookie in auth_response.cookies.jar:
+                if cookie.name == "tsagent":
+                    tsagent = cookie.value
+                    break
 
-            # Verify tsagent was set
-            tsagent = client.cookies.get("tsagent")
             if not tsagent:
                 raise RuntimeError("Auth failed: tsagent cookie was not set")
 
             logger.info(f"🔑 Using tsagent: {tsagent}")
-            logger.info(f"🔑 All session cookies: {dict(client.cookies)}")
 
             job.response_payload = {
                 "mode": mode,
@@ -415,23 +405,17 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
             }
             db.commit()
             save_headers = _build_save_headers()
+            save_cookies = {"lg": "ru", "tsagent": tsagent}
 
             for item in json_items:
                 idx = int(item.get("index") or 0)
                 payload = item.get("payload") or {}
 
-                # DEBUG: Log cookies before first save request
+                # DEBUG: Log cookies for first save request
                 if idx == 0:
-                    logger.info(f"🍪 All cookies before save (item {idx}): {dict(client.cookies)}")
-                    # Check what Cookie header will be sent
-                    cookie_header = "; ".join([f"{name}={value}" for name, value in client.cookies.items()])
-                    logger.info(f"📤 Cookie header that will be sent: {cookie_header}")
+                    logger.info(f"🍪 Save cookies: {save_cookies}")
 
-                response = client.post(save_url, data=payload, headers=save_headers)
-
-                # DEBUG: Log request headers for first item
-                if idx == 0:
-                    logger.info(f"📨 Request headers: {dict(response.request.headers)}")
+                response = client.post(save_url, data=payload, headers=save_headers, cookies=save_cookies)
 
                 if response.status_code >= 400:
                     raise RuntimeError(f"HTTP {response.status_code}: {response.text}")
