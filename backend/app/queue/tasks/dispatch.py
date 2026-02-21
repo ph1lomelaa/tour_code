@@ -367,11 +367,10 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
             # Use domain WITHOUT leading dot to match server's Set-Cookie format
             cookie_domain = parsed_auth_url.netloc if parsed_auth_url.netloc else None
 
-            # Set initial cookies in client's jar
+            # Set initial lg cookie (don't set tsagent - server will set it during auth)
             if cookie_domain:
                 client.cookies.set("lg", "ru", domain=cookie_domain)
-                client.cookies.set("tsagent", "", domain=cookie_domain)
-                logger.info(f"🔧 Set initial cookies for domain: {cookie_domain}")
+                logger.info(f"🔧 Set initial lg cookie for domain: {cookie_domain}")
             else:
                 # Fallback: let httpx manage cookies automatically
                 logger.warning("Could not extract domain from auth URL, cookies will be managed automatically")
