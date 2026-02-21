@@ -364,12 +364,14 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
 
             # Extract domain from auth URL for cookie setting
             parsed_auth_url = urlsplit(auth_url)
-            cookie_domain = f".{parsed_auth_url.netloc}" if parsed_auth_url.netloc else None
+            # Use domain WITHOUT leading dot to match server's Set-Cookie format
+            cookie_domain = parsed_auth_url.netloc if parsed_auth_url.netloc else None
 
             # Set initial cookies in client's jar
             if cookie_domain:
                 client.cookies.set("lg", "ru", domain=cookie_domain)
                 client.cookies.set("tsagent", "", domain=cookie_domain)
+                logger.info(f"🔧 Set initial cookies for domain: {cookie_domain}")
             else:
                 # Fallback: let httpx manage cookies automatically
                 logger.warning("Could not extract domain from auth URL, cookies will be managed automatically")
@@ -381,6 +383,11 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
             )
             if auth_response.status_code >= 400:
                 raise RuntimeError(f"Auth HTTP {auth_response.status_code}: {auth_response.text[:500]}")
+
+            # Check for auth errors in response body
+            auth_text = auth_response.text or ""
+            if "Invalid username or password" in auth_text:
+                raise RuntimeError(f"Auth failed: Invalid credentials in .env file")
 
             # DEBUG: Log all cookies after auth
             logger.info(f"🍪 All cookies in jar after auth: {dict(client.cookies)}")
@@ -417,8 +424,15 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 # DEBUG: Log cookies before first save request
                 if idx == 0:
                     logger.info(f"🍪 All cookies before save (item {idx}): {dict(client.cookies)}")
+                    # Check what Cookie header will be sent
+                    cookie_header = "; ".join([f"{name}={value}" for name, value in client.cookies.items()])
+                    logger.info(f"📤 Cookie header that will be sent: {cookie_header}")
 
                 response = client.post(save_url, data=payload, headers=save_headers)
+
+                # DEBUG: Log request headers for first item
+                if idx == 0:
+                    logger.info(f"📨 Request headers: {dict(response.request.headers)}")
 
                 if response.status_code >= 400:
                     raise RuntimeError(f"HTTP {response.status_code}: {response.text}")
