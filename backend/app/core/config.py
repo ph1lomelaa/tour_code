@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     DISPATCH_TARGET_URL: str = ""  # Deprecated: текущий поток использует DISPATCH_AUTH_URL + DISPATCH_SAVE_URL
     DISPATCH_AUTH_URL: str = ""
     DISPATCH_SAVE_URL: str = ""
-    DISPATCH_REQUEST_TIMEOUT_SECONDS: int = 30
+    DISPATCH_REQUEST_TIMEOUT_SECONDS: int = 120
     DISPATCH_MAX_ATTEMPTS: int = 5
     DISPATCH_RETRY_DELAY_SECONDS: int = 60
     DISPATCH_QUEUE_NAME: str = "tour_dispatch"
