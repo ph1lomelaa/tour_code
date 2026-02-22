@@ -122,12 +122,11 @@ def _build_client_block(pilgrim: Dict[str, Any]) -> Dict[str, Any]:
     # Extra strip to ensure no leading/trailing whitespace
     doc = normalize_document((pilgrim.get("document") or "").strip().upper()).strip()
     surname = str(pilgrim.get("surname") or "").strip().upper()
-    name = str(pilgrim.get("name") or "").strip().upper()
 
     return {
         "clientcounter": 0,
         "c_name_0": settings.DISPATCH_CLIENT_NAME_TEMPLATE,
-        "c_nmeng_0": f"{surname} {name}".strip(),  # Combine surname and name
+        "c_nmeng_0": surname,
         "c_borned_0": settings.DISPATCH_DEFAULT_BIRTH_DATE,
         "c_doc_type_0": settings.DISPATCH_DEFAULT_DOC_TYPE,
         "c_doc_date_0": settings.DISPATCH_DEFAULT_DOC_DATE,
