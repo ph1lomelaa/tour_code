@@ -35,14 +35,14 @@ class UserRole(str, enum.Enum):
 
 
 class TourStatus(str, enum.Enum):
-    DRAFT = "DRAFT"
-    CONFIRMED = "CONFIRMED"
-    QUEUED = "QUEUED"
-    PROCESSING = "PROCESSING"
-    SUBMITTED = "SUBMITTED"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-    CANCELLED = "CANCELLED"
+    DRAFT = "draft"
+    CONFIRMED = "confirmed"
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    SUBMITTED = "submitted"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class DispatchJobStatus(str, enum.Enum):
