@@ -46,11 +46,11 @@ class TourStatus(str, enum.Enum):
 
 
 class DispatchJobStatus(str, enum.Enum):
-    DRAFT = "DRAFT"
-    QUEUED = "QUEUED"
-    SENDING = "SENDING"
-    SENT = "SENT"
-    FAILED = "FAILED"
+    DRAFT = "draft"
+    QUEUED = "queued"
+    SENDING = "sending"
+    SENT = "sent"
+    FAILED = "failed"
 
 
 # ── 1. users ─────────────────────────────────────────────
