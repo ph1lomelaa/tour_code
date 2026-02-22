@@ -300,7 +300,8 @@ def _is_guest_page(text: str) -> bool:
     raw = (text or "").lower()
     if not raw:
         return False
-    return "@ guest" in raw or "/voucher/partner/auth" in raw
+    # Check for actual guest status, not logout links
+    return "logged as:guest" in raw or "@ guest" in raw
 
 
 @celery_app.task(bind=True, name="dispatch.process_job", max_retries=100)

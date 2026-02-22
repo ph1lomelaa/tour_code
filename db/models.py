@@ -29,28 +29,28 @@ def _enum_type(enum_cls, db_type_name: str) -> SAEnum:
     )
 
 class UserRole(str, enum.Enum):
-    ADMIN = "admin"
-    MANAGER = "manager"
-    OPERATOR = "operator"
+    ADMIN = "ADMIN"
+    MANAGER = "MANAGER"
+    OPERATOR = "OPERATOR"
 
 
 class TourStatus(str, enum.Enum):
-    DRAFT = "draft"
-    CONFIRMED = "confirmed"
-    QUEUED = "queued"
-    PROCESSING = "processing"
-    SUBMITTED = "submitted"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
+    DRAFT = "DRAFT"
+    CONFIRMED = "CONFIRMED"
+    QUEUED = "QUEUED"
+    PROCESSING = "PROCESSING"
+    SUBMITTED = "SUBMITTED"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
 
 
 class DispatchJobStatus(str, enum.Enum):
-    DRAFT = "draft"
-    QUEUED = "queued"
-    SENDING = "sending"
-    SENT = "sent"
-    FAILED = "failed"
+    DRAFT = "DRAFT"
+    QUEUED = "QUEUED"
+    SENDING = "SENDING"
+    SENT = "SENT"
+    FAILED = "FAILED"
 
 
 # ── 1. users ─────────────────────────────────────────────
