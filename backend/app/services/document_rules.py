@@ -21,7 +21,8 @@ def normalize_document(value: str) -> str:
     if not digits:
         return ""
 
-    if not digits.startswith("1"):
+    # Reject if digits start with 8 (invalid passport/IIN)
+    if digits.startswith("8"):
         return ""
 
     return cleaned
