@@ -54,6 +54,17 @@ def _extract_tour_code(response: httpx.Response) -> str:
         if candidate and "tmpl_var" not in candidate and "[" not in candidate:
             return candidate
 
+    # Pattern for span/div with id="q_number": <span id="q_number">CODE</span>
+    span_field = re.search(
+        r'<(?:span|div)[^>]*id=["\']q_number["\'][^>]*>([^<]+)</',
+        text,
+        re.IGNORECASE,
+    )
+    if span_field:
+        candidate = span_field.group(1).strip()
+        if candidate and "tmpl_var" not in candidate and "[" not in candidate:
+            return candidate
+
     js_field = re.search(r'"q_number"\s*:\s*"([^"]+)"', text, re.IGNORECASE)
     if js_field:
         candidate = js_field.group(1).strip()
@@ -66,7 +77,8 @@ def _extract_tour_code(response: httpx.Response) -> str:
         return match.group(1).strip()
 
     # Fallback for HTML responses where code is embedded in page content.
-    code_match = re.search(r"\b\d{2}[A-Za-z]{2}\d{5,6}-\d+\b", text)
+    # Updated pattern to match formats like: NOR82Sa60224-18948731, 12AB12345-123, etc
+    code_match = re.search(r"\b[A-Z]{2,3}\d{2}[A-Za-z]{1,2}\d{5,6}-\d+\b", text)
     if code_match:
         return code_match.group(0).strip()
 
