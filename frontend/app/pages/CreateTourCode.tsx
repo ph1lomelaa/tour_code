@@ -384,6 +384,17 @@ export function CreateTourCode() {
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [matchedEditor, setMatchedEditor] = useState<MatchedEditorState | null>(null);
 
+  // Manual tour creation
+  const [isCreateTourOpen, setIsCreateTourOpen] = useState(false);
+  const [manualTourForm, setManualTourForm] = useState({
+    date_start: "",
+    date_end: "",
+    route: "ALA-JED",
+    country: "Саудовская Аравия",
+    hotel: "",
+    airlines: "KC",
+  });
+
   // ============= Handlers =============
 
   const normalizeEditableValue = (field: EditableField, rawValue: string): string => {
@@ -781,6 +792,39 @@ export function CreateTourCode() {
     resetDispatchTracking();
   };
 
+  const DEPARTURE_CITY: Record<string, string> = {
+    "ALA-JED": "Almaty", "ALA-MED": "Almaty",
+    "NQZ-JED": "Nur-Sultan", "NQZ-MED": "Nur-Sultan", "NQZ-ALA": "Nur-Sultan",
+    "SCO-MED": "Shymkent", "SCO-JED": "Shymkent",
+  };
+
+  const handleCreateTourManual = () => {
+    const { date_start, date_end, route, country, hotel } = manualTourForm;
+    if (!date_start || !date_end || !route) return;
+
+    const [d1, m1, y1] = date_start.split(".").map(Number);
+    const [d2, m2, y2] = date_end.split(".").map(Number);
+    const diff = new Date(y2, m2 - 1, d2).getTime() - new Date(y1, m1 - 1, d1).getTime();
+    const days = Math.round(diff / 86400000) + 1;
+
+    const tour: TourOption = {
+      spreadsheet_id: "",
+      spreadsheet_name: "",
+      sheet_name: `${date_start} ${route}`,
+      date_start,
+      date_end,
+      days: days > 0 ? days : 1,
+      route,
+      departure_city: DEPARTURE_CITY[route] || "",
+    };
+
+    handleTourSelect(tour);
+    setSelectedCountry(country);
+    setSelectedHotel(hotel);
+    setIsCreateTourOpen(false);
+    setManualTourForm({ date_start: "", date_end: "", route: "ALA-JED", country: "Саудовская Аравия", hotel: "", airlines: "KC" });
+  };
+
   const handleManifestUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedTour) {
       setManifestError("Сначала выберите тур");
@@ -823,6 +867,22 @@ export function CreateTourCode() {
 
     setIsComparing(true);
     setManifestError(null);
+
+    // Тур создан вручную — нет Google Sheet для сравнения.
+    // Все паломники из манифеста идут напрямую в совпадения.
+    if (!selectedTour.spreadsheet_id) {
+      const normalizedManifestPilgrims = dedupeManifestPilgrims(mPilgrims);
+      const matched: MatchedPilgrim[] = normalizedManifestPilgrims.map((p) => ({
+        ...p,
+        package_name: "",
+        tour_name: selectedTour.sheet_name,
+      }));
+      setAllMatched(matched);
+      setAllInSheetNotManifest([]);
+      setAllInManifestNotSheet([]);
+      setIsComparing(false);
+      return;
+    }
 
     try {
       const normalizedManifestPilgrims = dedupeManifestPilgrims(mPilgrims);
@@ -1171,6 +1231,7 @@ export function CreateTourCode() {
   const dispatchHasProgress = Boolean(dispatchJobId);
 
   return (
+    <>
     <div className="relative min-h-full bg-[#E8E0D4]">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-[#C4A265]/[0.1] blur-[100px]" />
@@ -1226,6 +1287,14 @@ export function CreateTourCode() {
                 {tourSearchError && (
                   <p className="mt-2 text-sm text-red-600">{tourSearchError}</p>
                 )}
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCreateTourOpen(true)}
+                  className="w-full mt-3 border-[#B8985F] text-[#B8985F] hover:bg-[#B8985F]/10"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Создать тур вручную
+                </Button>
               </div>
 
               {/* Результаты поиска туров */}
@@ -1752,5 +1821,111 @@ export function CreateTourCode() {
       </div>
       </div>
     </div>
+
+    {/* Модальное окно: Создать тур вручную */}
+    {isCreateTourOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+          <h4 className="text-[#2B2318] font-medium text-lg mb-5">Создать тур вручную</h4>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block mb-1 text-sm text-[#2B2318]">Дата начала</label>
+                <Input
+                  type="text"
+                  placeholder="ДД.ММ.ГГГГ"
+                  value={manualTourForm.date_start}
+                  onChange={(e) => setManualTourForm((f) => ({ ...f, date_start: e.target.value }))}
+                  className="bg-white/40 border-white/60 focus:border-[#B8985F]"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm text-[#2B2318]">Дата окончания</label>
+                <Input
+                  type="text"
+                  placeholder="ДД.ММ.ГГГГ"
+                  value={manualTourForm.date_end}
+                  onChange={(e) => setManualTourForm((f) => ({ ...f, date_end: e.target.value }))}
+                  className="bg-white/40 border-white/60 focus:border-[#B8985F]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block mb-1 text-sm text-[#2B2318]">Маршрут</label>
+              <Select
+                value={manualTourForm.route}
+                onValueChange={(v) => setManualTourForm((f) => ({ ...f, route: v }))}
+              >
+                <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA", "SCO-MED", "SCO-JED"].map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block mb-1 text-sm text-[#2B2318]">Страна</label>
+              <Select
+                value={manualTourForm.country}
+                onValueChange={(v) => setManualTourForm((f) => ({ ...f, country: v }))}
+              >
+                <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Саудовская Аравия">Саудовская Аравия</SelectItem>
+                  <SelectItem value="ОАЭ">ОАЭ</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block mb-1 text-sm text-[#2B2318]">Отель</label>
+              <Input
+                type="text"
+                placeholder="Название отеля"
+                value={manualTourForm.hotel}
+                onChange={(e) => setManualTourForm((f) => ({ ...f, hotel: e.target.value }))}
+                className="bg-white/40 border-white/60 focus:border-[#B8985F]"
+              />
+            </div>
+
+            <div>
+              <label className="block mb-1 text-sm text-[#2B2318]">Авиалиния</label>
+              <Input
+                type="text"
+                value={manualTourForm.airlines}
+                onChange={(e) => setManualTourForm((f) => ({ ...f, airlines: e.target.value }))}
+                className="bg-white/40 border-white/60 focus:border-[#B8985F]"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <Button
+              variant="outline"
+              className="flex-1 border-[#D8CCB8] text-[#6B5435]"
+              onClick={() => setIsCreateTourOpen(false)}
+            >
+              Отмена
+            </Button>
+            <Button
+              className="flex-1 bg-gradient-to-r from-[#B8985F] to-[#A88952] hover:from-[#A88952] hover:to-[#8B6F47] text-white"
+              onClick={handleCreateTourManual}
+              disabled={!manualTourForm.date_start || !manualTourForm.date_end}
+            >
+              Создать
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
