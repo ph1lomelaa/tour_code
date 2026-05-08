@@ -350,8 +350,8 @@ export function CreateTourCode() {
   const [selectedFlight, setSelectedFlight] = useState("");
   const [selectedCountry, setSelectedCountry] = useState("Саудовская Аравия");
   const [selectedHotel, setSelectedHotel] = useState("");
-  const [dispatchTouragentName, setDispatchTouragentName] = useState("HICKMET PREMIUM");
-  const [dispatchTouragentBin, setDispatchTouragentBin] = useState("240340000277");
+  const [dispatchTouragentName, setDispatchTouragentName] = useState("Хикмет Travel");
+  const [dispatchTouragentBin, setDispatchTouragentBin] = useState("080340019818");
 
   // Tour search
   const [tourOptions, setTourOptions] = useState<TourOption[]>([]);
@@ -447,7 +447,12 @@ export function CreateTourCode() {
     setDispatchError(snapshot.error_message || null);
   };
 
-  const applyHickmetPreset = () => {
+  const applyHikmetTravelPreset = () => {
+    setDispatchTouragentName("Хикмет Travel");
+    setDispatchTouragentBin("080340019818");
+  };
+
+  const applyHickmetPremiumPreset = () => {
     setDispatchTouragentName("HICKMET PREMIUM");
     setDispatchTouragentBin("240340000277");
   };
@@ -1415,7 +1420,16 @@ export function CreateTourCode() {
                     size="sm"
                     variant="outline"
                     className="border-[#E5DDD0] hover:bg-white"
-                    onClick={applyHickmetPreset}
+                    onClick={applyHikmetTravelPreset}
+                  >
+                    Хикмет Travel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="border-[#E5DDD0] hover:bg-white"
+                    onClick={applyHickmetPremiumPreset}
                   >
                     HICKMET PREMIUM
                   </Button>

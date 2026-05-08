@@ -33,7 +33,7 @@ def _resolve_touragent(snapshot: Dict[str, Any]) -> Tuple[str, str]:
     override_name = str(overrides.get("q_touragent") or "").strip()
     override_bin = str(overrides.get("q_touragent_bin") or "").strip()
 
-    # HICKMET preset is protected: always use backend-configured values.
+    # Default preset is protected: always use backend-configured values.
     normalized_name = override_name.upper()
     if (
         not override_name

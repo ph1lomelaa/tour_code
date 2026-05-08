@@ -79,8 +79,8 @@ class Settings(BaseSettings):
     DISPATCH_AGENT_PASS: str = "test"
 
     # Business defaults
-    DISPATCH_TOURAGENT_NAME: str = "HICKMET PREMIUM"
-    DISPATCH_TOURAGENT_BIN: str = "240340000277"
+    DISPATCH_TOURAGENT_NAME: str = "Хикмет Travel"
+    DISPATCH_TOURAGENT_BIN: str = "080340019818"
     DISPATCH_DEFAULT_AIRLINE: str = "KC"
     DISPATCH_DEFAULT_DOC_PRODUCTION: str = "Ministry Of Internal Affairs"
     DISPATCH_DEFAULT_DOC_TYPE: str = "паспорт"
