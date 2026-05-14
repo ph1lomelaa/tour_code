@@ -212,8 +212,8 @@ class GoogleSheetsService:
             return None
 
     def _extract_route(self, text: str) -> Optional[str]:
-        """Извлекает маршрут из текста: ALA-JED, ALA-MED, NQZ-JED, NQZ-MED"""
-        routes = ["ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA"]
+        """Извлекает маршрут из текста: ALA-JED, ALA-MED, NQZ-JED, NQZ-MED, CIT-MED"""
+        routes = ["ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA", "CIT-MED"]
 
         text_upper = text.upper()
         for route in routes:

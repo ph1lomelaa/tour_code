@@ -800,7 +800,7 @@ export function CreateTourCode() {
   const DEPARTURE_CITY: Record<string, string> = {
     "ALA-JED": "Almaty", "ALA-MED": "Almaty",
     "NQZ-JED": "Nur-Sultan", "NQZ-MED": "Nur-Sultan", "NQZ-ALA": "Nur-Sultan",
-    "SCO-MED": "Shymkent", "SCO-JED": "Shymkent",
+    "SCO-MED": "Shymkent", "SCO-JED": "Shymkent", "CIT-MED": "Shymkent",
   };
 
   const handleCreateTourManual = () => {
@@ -1876,7 +1876,7 @@ export function CreateTourCode() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {["ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA", "SCO-MED", "SCO-JED"].map((r) => (
+                  {["ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA", "SCO-MED", "SCO-JED", "CIT-MED"].map((r) => (
                     <SelectItem key={r} value={r}>{r}</SelectItem>
                   ))}
                 </SelectContent>

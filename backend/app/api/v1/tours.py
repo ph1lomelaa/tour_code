@@ -146,7 +146,8 @@ def _get_departure_city(route: str) -> str:
         "ALA-MED": "Almaty",
         "NQZ-JED": "Nur-Sultan",
         "NQZ-MED": "Nur-Sultan",
-        "NQZ-ALA": "Nur-Sultan"
+        "NQZ-ALA": "Nur-Sultan",
+        "CIT-MED": "Shymkent",
     }
     return route_map.get(route, "Не указан")
 
