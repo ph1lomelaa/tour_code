@@ -200,7 +200,17 @@ class SheetPilgrimParser:
             "name": name_idx,
             "full_name": self._find_column_index(headers, ['first/last name', 'full name', 'fio', 'фио']),
             "document": self._find_column_index(headers, [
-                'document number', 'document', 'passport', 'паспорт', 'номер паспорта', 'doc number'
+                'document number',
+                'document no',
+                'doc number',
+                'document',
+                'passport number',
+                'passport no',
+                'passport',
+                'номер паспорта',
+                'номер документа',
+                'паспорт',
+                'загранпаспорт',
             ]),
             "iin": self._find_column_index(headers, ['iin', 'иин', 'iin number', 'personal id']),
             "manager": self._find_column_index(headers, ['manager', 'менеджер', 'manager name']),

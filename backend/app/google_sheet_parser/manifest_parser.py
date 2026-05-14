@@ -28,7 +28,19 @@ class ManifestParser:
             full_name_col = self._find_column(columns_map, ['full name', 'first/last name', 'fio', 'фио'], exclude=excluded)
             document_col = self._find_column(
                 columns_map,
-                ['document number', 'document no', 'document', 'passport number', 'passport', 'паспорт'],
+                [
+                    'document number',
+                    'document no',
+                    'doc number',
+                    'document',
+                    'passport number',
+                    'passport no',
+                    'passport',
+                    'номер паспорта',
+                    'номер документа',
+                    'паспорт',
+                    'загранпаспорт',
+                ],
                 exclude=excluded,
             )
             iin_col = self._find_column(columns_map, ['iin', 'иин', 'iin number', 'personal id'], exclude=excluded)
