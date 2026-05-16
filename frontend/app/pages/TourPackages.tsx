@@ -43,6 +43,12 @@ const normalizeNameValue = (value?: string) =>
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const formatDispatchMessage = (message?: string | null) => {
+  const text = (message || "").trim();
+  if (!text) return "Отправка не завершена. Проверьте данные и повторите попытку.";
+  return text;
+};
+
 type EditableField = "surname" | "name" | "document";
 type EditableTable = "sheet" | "manifest";
 type EditingCell = {
@@ -250,7 +256,7 @@ export function TourPackages() {
       if (status === "failed") {
         return {
           ok: false as const,
-          error: snapshot.error_message || "Задача завершилась ошибкой",
+          error: formatDispatchMessage(snapshot.error_message),
         };
       }
       await sleep(1200);

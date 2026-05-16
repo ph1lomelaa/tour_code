@@ -22,6 +22,68 @@ from app.services.document_rules import normalize_document
 logger = logging.getLogger(__name__)
 
 
+def _public_dispatch_error_message(raw_error: str) -> str:
+    text = str(raw_error or "").strip()
+    if not text:
+        return "Отправка не завершилась. Проверьте данные и повторите попытку."
+
+    lowered = text.lower()
+
+    if "no pilgrims to dispatch" in lowered:
+        return "Нет подтвержденных паломников для отправки."
+    if "dispatch_auth_url is not configured" in lowered or "dispatch_save_url is not configured" in lowered:
+        return "Не настроены параметры отправки. Нужна проверка сервера."
+    if "invalid credentials" in lowered:
+        return "Не удалось авторизоваться во внешней системе. Нужна проверка учетных данных."
+    if "tsagent cookie was not set" in lowered or "unauthorized session" in lowered:
+        return "Внешняя система не подтвердила сессию. Повторите отправку позже."
+    if lowered.startswith("auth http"):
+        return "Внешняя система не приняла авторизацию. Повторите попытку позже."
+    if lowered.startswith("http "):
+        return "Внешняя система временно недоступна. Повторите попытку позже."
+    if lowered.startswith("view http"):
+        return "Заявка создана, но подтверждение от внешней системы прочиталось не полностью."
+
+    return text
+
+
+def _build_failed_items_message(failed_items: int, total_items: int, failure_reasons: list[str]) -> str:
+    if not failure_reasons:
+        return (
+            f"Не удалось завершить отправку для {failed_items} из {total_items} записей. "
+            "Проверьте данные и повторите попытку."
+        )
+
+    reason_counts: Dict[str, int] = {}
+    for reason in failure_reasons:
+        public_reason = _public_dispatch_error_message(reason)
+        reason_counts[public_reason] = reason_counts.get(public_reason, 0) + 1
+
+    top_reason, top_count = max(reason_counts.items(), key=lambda x: x[1])
+    return (
+        f"Не удалось завершить отправку для {failed_items} из {total_items} записей. "
+        f"Чаще всего: {top_reason}"
+        + (f" ({top_count})" if top_count > 1 else "")
+    )
+
+
+TOUR_CODE_MAX_LENGTH = 64
+
+
+def _is_valid_tour_code(candidate: str) -> bool:
+    if not candidate:
+        return False
+    if "tmpl_var" in candidate:
+        return False
+    if "[" in candidate or "]" in candidate:
+        return False
+    if candidate.lower().startswith("base64:"):
+        return False
+    if len(candidate) > TOUR_CODE_MAX_LENGTH:
+        return False
+    return True
+
+
 def _extract_tour_code(response: httpx.Response) -> str:
     try:
         payload = response.json()
@@ -39,7 +101,9 @@ def _extract_tour_code(response: httpx.Response) -> str:
 
         raw_value = payload.get("string")
         if raw_value is not None:
-            return str(raw_value).strip()
+            candidate = str(raw_value).strip()
+            if _is_valid_tour_code(candidate):
+                return candidate
 
     text = response.text or ""
 
@@ -51,7 +115,7 @@ def _extract_tour_code(response: httpx.Response) -> str:
     )
     if html_field:
         candidate = html_field.group(1).strip()
-        if candidate and "tmpl_var" not in candidate and "[" not in candidate:
+        if _is_valid_tour_code(candidate):
             return candidate
 
     # Pattern for span/div with id="q_number": <span id="q_number">CODE</span>
@@ -62,30 +126,36 @@ def _extract_tour_code(response: httpx.Response) -> str:
     )
     if span_field:
         candidate = span_field.group(1).strip()
-        if candidate and "tmpl_var" not in candidate and "[" not in candidate:
+        if _is_valid_tour_code(candidate):
             return candidate
 
     js_field = re.search(r'"q_number"\s*:\s*"([^"]+)"', text, re.IGNORECASE)
     if js_field:
         candidate = js_field.group(1).strip()
-        if candidate and "tmpl_var" not in candidate and "[" not in candidate:
+        if _is_valid_tour_code(candidate):
             return candidate
 
     has_ok_status = re.search(r'"status"\s*:\s*"?200"?', text)
     match = re.search(r'"string"\s*:\s*"([^"]+)"', text)
     if has_ok_status and match:
-        return match.group(1).strip()
+        candidate = match.group(1).strip()
+        if _is_valid_tour_code(candidate):
+            return candidate
 
     # Fallback for HTML responses where code is embedded in page content.
     # Updated pattern to match formats like: NOR82Sa60224-18948731, 12AB12345-123, etc
     code_match = re.search(r"\b[A-Z]{2,3}\d{2}[A-Za-z]{1,2}\d{5,6}-\d+\b", text)
     if code_match:
-        return code_match.group(0).strip()
+        candidate = code_match.group(0).strip()
+        if _is_valid_tour_code(candidate):
+            return candidate
 
     # Fallback for legacy responses where only `string` is present.
     match = re.search(r'"string"\s*:\s*"([^"]+)"', text)
     if match:
-        return match.group(1).strip()
+        candidate = match.group(1).strip()
+        if _is_valid_tour_code(candidate):
+            return candidate
 
     return ""
 
@@ -316,7 +386,7 @@ def _is_guest_page(text: str) -> bool:
     return "logged as:guest" in raw or "@ guest" in raw
 
 
-@celery_app.task(bind=True, name="dispatch.process_job", max_retries=100)
+@celery_app.task(bind=True, name="dispatch.process_job", max_retries=5)
 def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
     db = SessionLocal()
     try:
@@ -389,7 +459,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
             # Check for auth errors in response body
             auth_text = auth_response.text or ""
             if "Invalid username or password" in auth_text:
-                raise RuntimeError(f"Auth failed: Invalid credentials in .env file")
+                raise RuntimeError("Auth failed: Invalid credentials in .env file")
 
             # Extract tsagent from response cookies
             tsagent = None
@@ -401,7 +471,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
             if not tsagent:
                 raise RuntimeError("Auth failed: tsagent cookie was not set")
 
-            logger.info(f"🔑 Using tsagent: {tsagent}")
+            logger.info("Dispatch auth succeeded, session cookie received")
 
             job.response_payload = {
                 "mode": mode,
@@ -426,7 +496,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
 
                 # DEBUG: Log cookies for first save request
                 if idx == 0:
-                    logger.info(f"🍪 Save cookies: {save_cookies}")
+                    logger.info("Dispatch save request initialized")
 
                 response = client.post(save_url, data=payload, headers=save_headers, cookies=save_cookies)
 
@@ -439,7 +509,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 # DEBUG: Check if guest page for first item
                 if idx == 0:
                     is_guest = _is_guest_page(response.text or "")
-                    logger.info(f"📄 Is guest page: {is_guest}, Response preview: {response.text[:500]}")
+                    logger.info("Dispatch response received, guest page=%s", is_guest)
 
                 if not business_error and _is_guest_page(response.text or ""):
                     business_error = "Unauthorized session (guest)"
@@ -449,7 +519,9 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 query_view_status_code: Optional[int] = None
                 query_view_text = ""
 
-                tour_code = "" if business_error else _extract_tour_code(response)
+                # Код из ответа /save не читаем — там лежит невычисленный шаблон.
+                # Настоящий код достаём только из /view (см. ниже).
+                tour_code = ""
                 if not business_error:
                     created_query_id = _extract_created_query_id(response)
                     if created_query_id:
@@ -474,7 +546,14 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                                 )
 
                 if created_query_id and not tour_code and not item_error_message:
-                    item_error_message = "Created query but q_number was not found in view response"
+                    logger.warning(
+                        "Query created without q_number in view response: tour_id=%s, query_id=%s, meta=%s",
+                        str(job.tour_id) if job.tour_id else None,
+                        created_query_id,
+                        item_meta,
+                    )
+
+                query_created_successfully = bool(created_query_id) and not business_error
 
                 if tour_code:
                     _save_tour_code_for_item(
@@ -483,7 +562,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                         item_meta=item_meta,
                         tour_code=tour_code,
                     )
-                else:
+                elif not query_created_successfully:
                     failed_items += 1
 
                 responses.append(
@@ -516,29 +595,53 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 }
                 db.commit()
 
-        if failed_items:
+        # Подсчёт исходов:
+        #   completed  — тур-код получен и сохранён в БД паломнику
+        #   registered — заявка создана у партнёра, но код ещё не сгенерирован
+        #                (типично: ожидает оплаты)
+        #   failed_items — заявка не создана: ошибка отправки/данных
+        completed_count = sum(1 for r in responses if r.get("tour_code"))
+        registered_count = sum(
+            1 for r in responses
+            if r.get("created_query_id") and not r.get("tour_code")
+        )
+
+        if completed_count == 0 and registered_count == 0 and failed_items > 0:
+            # Полный провал — ни одна запись не дошла до партнёра
             failure_reasons = [
                 str(item.get("error_message") or "").strip()
                 for item in responses
                 if str(item.get("error_message") or "").strip()
             ]
-            if failure_reasons:
-                reason_counts: Dict[str, int] = {}
-                for reason in failure_reasons:
-                    reason_counts[reason] = reason_counts.get(reason, 0) + 1
-                top_reason, top_count = max(reason_counts.items(), key=lambda x: x[1])
-                job.error_message = (
-                    f"Failed items: {failed_items}/{total_items}. "
-                    f"Top reason ({top_count}): {top_reason}"
-                )
-            else:
-                job.error_message = f"Failed items: {failed_items}/{total_items}"
+            job.error_message = _build_failed_items_message(
+                failed_items, total_items, failure_reasons
+            )
             job.status = DispatchJobStatus.FAILED
             job.sent_at = None
         else:
+            # Хотя бы часть записей дошла до партнёра — считаем отправку успешной,
+            # детали показываем в error_message (фронт отрисует амбер-«warning»).
             job.status = DispatchJobStatus.SENT
             job.sent_at = datetime.utcnow()
-            job.error_message = None
+
+            if completed_count == total_items:
+                # Идеальный случай: все получили тур-коды
+                job.error_message = None
+            else:
+                parts: list[str] = []
+                if completed_count:
+                    parts.append(
+                        f"тур-коды получены для {completed_count} из {total_items}"
+                    )
+                if registered_count:
+                    parts.append(
+                        f"{registered_count} ожидают подтверждения от партнёра"
+                    )
+                if failed_items:
+                    parts.append(
+                        f"{failed_items} требуют проверки данных"
+                    )
+                job.error_message = "Отправлено. " + ", ".join(parts) + "."
 
         job.next_attempt_at = None
         job.response_payload = {
@@ -565,9 +668,15 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
         }
 
     except Exception as exc:
+        try:
+            db.rollback()
+        except Exception:
+            logger.exception("Failed to rollback session after dispatch error")
         job = db.get(DispatchJob, job_id)
         if job:
-            job.error_message = str(exc)[:2000]
+            technical_error = str(exc)[:2000]
+            job.error_message = _public_dispatch_error_message(technical_error)
+            logger.exception("Dispatch job failed: %s", technical_error)
 
             if job.attempt_count >= job.max_attempts:
                 job.status = DispatchJobStatus.FAILED

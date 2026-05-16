@@ -22,7 +22,7 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
   sent:    { label: "Отправлено", dot: "bg-emerald-400" },
   queued:  { label: "В очереди",  dot: "bg-amber-400" },
   sending: { label: "Отправка",   dot: "bg-sky-400" },
-  failed:  { label: "Ошибка",     dot: "bg-red-400" },
+  failed:  { label: "Требует проверки", dot: "bg-amber-400" },
   draft:   { label: "Черновик",    dot: "bg-stone-300" },
 };
 
@@ -255,25 +255,25 @@ export function Dashboard() {
                         job.status === "sent"
                           ? "bg-emerald-50"
                           : job.status === "failed"
-                            ? "bg-red-50"
+                            ? "bg-amber-50"
                             : "bg-amber-50"
                       }`}>
                         {job.status === "sent" ? (
                           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                         ) : job.status === "failed" ? (
-                          <span className="w-4 h-4 rounded-full border-2 border-red-300 flex items-center justify-center text-[9px] text-red-400 font-bold">!</span>
+                          <span className="w-4 h-4 rounded-full border-2 border-amber-300 flex items-center justify-center text-[9px] text-amber-500 font-bold">!</span>
                         ) : (
                           <Send className="w-3.5 h-3.5 text-amber-500" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] text-[#2B2318] truncate leading-tight">
-                          {job.tour_sheet_name || `#${job.id.slice(0, 8)}`}
+                          {job.tour_sheet_name || "Отправка без названия"}
                         </p>
                         <p className="text-[11px] text-[#A99B88] mt-0.5">
                           {new Date(job.created_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}
                           {job.status === "failed" && job.error_message && (
-                            <span className="text-red-300 ml-1">
+                            <span className="text-[#B8985F] ml-1">
                               — {job.error_message.slice(0, 35)}
                               {job.error_message.length > 35 ? "..." : ""}
                             </span>

@@ -336,7 +336,13 @@ const DISPATCH_STATUS_META: Record<DispatchStatus, { label: string; tone: string
   queued: { label: "В очереди", tone: "text-amber-700" },
   sending: { label: "Отправка", tone: "text-sky-700" },
   sent: { label: "Успешно", tone: "text-green-700" },
-  failed: { label: "Ошибка", tone: "text-red-700" },
+  failed: { label: "Требует проверки", tone: "text-amber-700" },
+};
+
+const formatDispatchMessage = (message?: string | null) => {
+  const text = (message || "").trim();
+  if (!text) return "Отправка не завершена. Проверьте данные и повторите попытку.";
+  return text;
 };
 
 export function CreateTourCode() {
@@ -373,6 +379,7 @@ export function CreateTourCode() {
   const [isComparing, setIsComparing] = useState(false);
   const [isQueueingDispatch, setIsQueueingDispatch] = useState(false);
   const [dispatchInfo, setDispatchInfo] = useState<string | null>(null);
+  const [dispatchInfoTone, setDispatchInfoTone] = useState<"success" | "warning">("success");
   const [dispatchJobId, setDispatchJobId] = useState<string | null>(null);
   const [dispatchJobStatus, setDispatchJobStatus] = useState<DispatchStatus | null>(null);
   const [dispatchItemsTotal, setDispatchItemsTotal] = useState(0);
@@ -418,6 +425,7 @@ export function CreateTourCode() {
 
   const resetDispatchTracking = () => {
     setDispatchInfo(null);
+    setDispatchInfoTone("success");
     setDispatchJobId(null);
     setDispatchJobStatus(null);
     setDispatchItemsTotal(0);
@@ -444,7 +452,13 @@ export function CreateTourCode() {
     setDispatchItemsTotal(Number(snapshot.items_total || 0));
     setDispatchItemsSent(Number(snapshot.items_sent || 0));
     setDispatchProgressPercent(Number(snapshot.progress_percent || 0));
-    setDispatchError(snapshot.error_message || null);
+    // Красное сообщение об ошибке показываем только при реальном провале.
+    // Частичный успех (status=sent + error_message) обрабатывается через dispatchInfo.
+    if (normalizedStatus === "failed") {
+      setDispatchError(snapshot.error_message || null);
+    } else {
+      setDispatchError(null);
+    }
   };
 
   const applyHikmetTravelPreset = () => {
@@ -729,13 +743,22 @@ export function CreateTourCode() {
         if (status === "sent") {
           const total = Number(snapshot.items_total || 0);
           const sent = Number(snapshot.items_sent || 0);
-          setDispatchInfo(`Успешно отправлено ${sent}/${total}. ID задачи: ${snapshot.id}`);
+          const note = (snapshot.error_message || "").trim();
+          if (note) {
+            // Частичный успех: бэкенд прислал summary в error_message.
+            // Показываем его как информацию, без красной ошибки.
+            setDispatchInfo(note);
+            setDispatchInfoTone("warning");
+          } else {
+            setDispatchInfo(`Успешно отправлено ${sent}/${total}`);
+            setDispatchInfoTone("success");
+          }
           return;
         }
         if (status === "failed") {
-          const message = snapshot.error_message || "Не удалось завершить отправку";
+          const message = formatDispatchMessage(snapshot.error_message);
           setDispatchError(message);
-          setDispatchInfo(`Задача завершилась с ошибкой. ID: ${snapshot.id}`);
+          setDispatchInfo("Отправка требует проверки");
           return;
         }
         if (!terminalStatuses.has(status)) {
@@ -1175,7 +1198,7 @@ export function CreateTourCode() {
 
       setDispatchJobId(response.id);
       applyDispatchJobSnapshot(response);
-      setDispatchInfo(`Задача поставлена в очередь: ${response.id}`);
+      setDispatchInfo("Отправка поставлена в очередь");
     } catch (error) {
       console.error("Error queueing dispatch:", error);
       setDispatchError("Не удалось поставить задачу в очередь");
@@ -1718,7 +1741,7 @@ export function CreateTourCode() {
               <div className="mt-4 rounded-xl border border-[#E5DDD0] bg-[#FCF8F2] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="text-sm text-[#2B2318]">
-                    Задача: <span className="font-medium">{dispatchJobId}</span>
+                    Статус отправки
                   </div>
                   <div className={`text-sm font-medium ${dispatchStatusView?.tone || "text-[#6B5435]"}`}>
                     {dispatchStatusView?.label || dispatchJobStatus || "В очереди"}
@@ -1737,7 +1760,11 @@ export function CreateTourCode() {
               </div>
             )}
             {dispatchInfo && (
-              <p className={`text-sm ${dispatchJobStatus === "failed" ? "text-red-700" : "text-green-700"}`}>
+              <p className={`text-sm ${
+                dispatchJobStatus === "failed" || dispatchInfoTone === "warning"
+                  ? "text-amber-700"
+                  : "text-green-700"
+              }`}>
                 {dispatchInfo}
               </p>
             )}

@@ -390,10 +390,10 @@ def enqueue_tour_dispatch_single(
         db.refresh(job)
     except Exception as queue_error:
         job.status = DispatchJobStatus.FAILED
-        job.error_message = f"Broker enqueue failed: {queue_error}"
+        job.error_message = "Не удалось запустить отправку. Повторите попытку позже."
         db.commit()
         db.refresh(job)
-        raise HTTPException(status_code=503, detail="Broker недоступен, задача не поставлена в очередь")
+        raise HTTPException(status_code=503, detail="Не удалось запустить отправку. Повторите попытку позже.")
 
     return _as_enqueue_single_dispatch_response(job)
 

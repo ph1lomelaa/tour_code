@@ -257,6 +257,12 @@ def _as_job_response(job: DispatchJob) -> DispatchJobResponse:
     )
 
 
+def _enqueue_unavailable_message(is_retry: bool = False) -> str:
+    if is_retry:
+        return "Очередь отправки сейчас недоступна. Повторите попытку позже."
+    return "Не удалось запустить отправку. Повторите попытку позже."
+
+
 @router.post("/jobs/enqueue", response_model=DispatchJobResponse)
 def enqueue_dispatch_job(request: DispatchEnqueueRequest, db: Session = Depends(get_db)):
     try:
@@ -284,10 +290,11 @@ def enqueue_dispatch_job(request: DispatchEnqueueRequest, db: Session = Depends(
             db.refresh(job)
         except Exception as queue_error:
             job.status = DispatchJobStatus.FAILED
-            job.error_message = f"Broker enqueue failed: {queue_error}"
+            job.error_message = _enqueue_unavailable_message()
             db.commit()
             db.refresh(job)
-            raise HTTPException(status_code=503, detail="Broker недоступен, задача не поставлена в очередь")
+            logger.error("Broker enqueue failed: %s", queue_error)
+            raise HTTPException(status_code=503, detail=_enqueue_unavailable_message())
 
         logger.info("🧾 Dispatch job queued: %s", job.id)
         return _as_job_response(job)
@@ -299,7 +306,7 @@ def enqueue_dispatch_job(request: DispatchEnqueueRequest, db: Session = Depends(
         raise HTTPException(status_code=409, detail="Паломник с таким номером паспорта уже существует")
     except Exception as e:
         logger.error("Ошибка enqueue dispatch job: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Не удалось поставить задачу в очередь: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось подготовить отправку. Проверьте данные и повторите попытку.")
 
 
 @router.get("/jobs/{job_id}", response_model=DispatchJobResponse)
@@ -365,9 +372,10 @@ def retry_dispatch_job(job_id: str, db: Session = Depends(get_db)):
         db.refresh(job)
     except Exception as queue_error:
         job.status = DispatchJobStatus.FAILED
-        job.error_message = f"Broker enqueue failed: {queue_error}"
+        job.error_message = _enqueue_unavailable_message(is_retry=True)
         db.commit()
         db.refresh(job)
-        raise HTTPException(status_code=503, detail="Broker недоступен, повторная постановка не удалась")
+        logger.error("Broker retry enqueue failed: %s", queue_error)
+        raise HTTPException(status_code=503, detail=_enqueue_unavailable_message(is_retry=True))
 
     return _as_job_response(job)
