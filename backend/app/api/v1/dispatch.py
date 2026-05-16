@@ -135,18 +135,26 @@ def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
 
     # --- Pilgrims ---
     def _add_pilgrims(persons: List[DispatchPerson]):
+        # Дедуп ТОЛЬКО в рамках текущего тура: один и тот же паспорт
+        # не должен попасть в новый тур дважды, но между разными турами
+        # один и тот же паломник может фигурировать (например, при повторных
+        # отправках того же манифеста).
         seen_documents: set[str] = set()
         for p in persons:
             normalized_document = normalize_document((p.document or "").strip().upper()) or None
             if normalized_document:
                 if normalized_document in seen_documents:
                     continue
-                exists_by_document = (
+                # Проверяем только в текущем туре (по tour.id)
+                exists_in_this_tour = (
                     db.query(Pilgrim.id)
-                    .filter(func.upper(func.trim(func.coalesce(Pilgrim.document, ""))) == normalized_document)
+                    .filter(
+                        Pilgrim.tour_id == tour.id,
+                        func.upper(func.trim(func.coalesce(Pilgrim.document, ""))) == normalized_document,
+                    )
                     .first()
                 )
-                if exists_by_document is not None:
+                if exists_in_this_tour is not None:
                     continue
                 seen_documents.add(normalized_document)
 
