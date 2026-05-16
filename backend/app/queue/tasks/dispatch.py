@@ -553,7 +553,16 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                         item_meta,
                     )
 
-                query_created_successfully = bool(created_query_id) and not business_error
+                # Заявка считается успешно зарегистрированной у партнёра, если:
+                #   - HTTP 200 (нет сетевой ошибки)
+                #   - нет business_error в теле ответа
+                #   - страница не "guest" (сессия валидна)
+                # query_id может быть невычисляемым из ответа (партнёр меняет формат),
+                # но это НЕ повод считать заявку неуспешной — она реально создана.
+                save_request_succeeded = (
+                    response.status_code < 400
+                    and not business_error
+                )
 
                 if tour_code:
                     _save_tour_code_for_item(
@@ -562,7 +571,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                         item_meta=item_meta,
                         tour_code=tour_code,
                     )
-                elif not query_created_successfully:
+                elif not save_request_succeeded:
                     failed_items += 1
 
                 responses.append(
@@ -597,13 +606,16 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
 
         # Подсчёт исходов:
         #   completed  — тур-код получен и сохранён в БД паломнику
-        #   registered — заявка создана у партнёра, но код ещё не сгенерирован
-        #                (типично: ожидает оплаты)
-        #   failed_items — заявка не создана: ошибка отправки/данных
+        #   registered — заявка ушла к партнёру (HTTP 200, без business_error),
+        #                но код ещё не получен/не сгенерирован (типично: ждём оплаты,
+        #                либо партнёр поменял формат ответа и query_id не достали)
+        #   failed_items — заявка не дошла: HTTP-ошибка или business_error
         completed_count = sum(1 for r in responses if r.get("tour_code"))
         registered_count = sum(
             1 for r in responses
-            if r.get("created_query_id") and not r.get("tour_code")
+            if not r.get("tour_code")
+            and (r.get("status_code") or 0) < 400
+            and not (r.get("error_message") or "").strip()
         )
 
         if completed_count == 0 and registered_count == 0 and failed_items > 0:
