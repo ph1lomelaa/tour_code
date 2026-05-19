@@ -49,12 +49,15 @@ def _apply_lightweight_migrations() -> None:
         if "tour_code" not in columns:
             conn.execute(text("ALTER TABLE pilgrims ADD COLUMN tour_code VARCHAR(64)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pilgrims_tour_code ON pilgrims (tour_code)"))
+        # Старый глобальный уникальный индекс блокировал повторную отправку
+        # того же паломника в разных турах. Дедуп теперь в рамках одного тура.
+        conn.execute(text("DROP INDEX IF EXISTS ux_pilgrims_document_norm"))
         _deduplicate_pilgrims_by_document(conn)
         conn.execute(
             text(
                 """
-                CREATE UNIQUE INDEX IF NOT EXISTS ux_pilgrims_document_norm
-                ON pilgrims (UPPER(TRIM(document)))
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_pilgrims_tour_document_norm
+                ON pilgrims (tour_id, UPPER(TRIM(document)))
                 WHERE document IS NOT NULL AND TRIM(document) <> ''
                 """
             )
@@ -62,13 +65,15 @@ def _apply_lightweight_migrations() -> None:
 
 
 def _deduplicate_pilgrims_by_document(conn) -> None:
+    """Удаляет дубли паломников в рамках одного тура (по tour_id + document)."""
     rows = conn.execute(
         text(
             """
-            SELECT id, document, tour_code, created_at
+            SELECT id, tour_id, document, tour_code, created_at
             FROM pilgrims
             WHERE document IS NOT NULL AND TRIM(document) <> ''
             ORDER BY
+                tour_id ASC,
                 UPPER(TRIM(document)) ASC,
                 CASE WHEN COALESCE(tour_code, '') <> '' THEN 0 ELSE 1 END ASC,
                 created_at ASC,
@@ -77,23 +82,24 @@ def _deduplicate_pilgrims_by_document(conn) -> None:
         )
     ).mappings().all()
 
-    seen_documents: set[str] = set()
+    seen_keys: set[tuple[str, str]] = set()
     duplicate_ids: list[str] = []
 
     for row in rows:
         normalized_document = str(row["document"] or "").strip().upper()
         if not normalized_document:
             continue
-        if normalized_document in seen_documents:
+        key = (str(row["tour_id"]), normalized_document)
+        if key in seen_keys:
             duplicate_ids.append(str(row["id"]))
             continue
-        seen_documents.add(normalized_document)
+        seen_keys.add(key)
 
     for duplicate_id in duplicate_ids:
         conn.execute(text("DELETE FROM pilgrims WHERE id = :id"), {"id": duplicate_id})
 
     if duplicate_ids:
-        logger.warning("Removed %s duplicate pilgrims by document before unique index", len(duplicate_ids))
+        logger.warning("Removed %s duplicate pilgrims by (tour_id, document) before unique index", len(duplicate_ids))
 
 
 def check_connection() -> bool:
