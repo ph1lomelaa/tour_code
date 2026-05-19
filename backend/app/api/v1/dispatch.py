@@ -57,6 +57,9 @@ class DispatchOverridesSnapshot(BaseModel):
     firmname: str = ""
     q_touragent: str = ""
     q_touragent_bin: str = ""
+    # Под каким аккаунтом авторизоваться в партнёрской системе.
+    # "hikmet" (по-умолчанию) или "almarwa". Креды лежат в .env на сервере.
+    agent_key: str = ""
 
 
 class DispatchResultsSnapshot(BaseModel):

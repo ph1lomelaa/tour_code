@@ -75,8 +75,14 @@ class Settings(BaseSettings):
     DISPATCH_RETURN_FIELD: str = "q_number"
 
     # Auth (меняются через env для test/prod)
+    # Дефолтный аккаунт (Хикмет Travel) — используется, если фронт не выбрал
+    # другой пресет тур-агента.
     DISPATCH_AGENT_LOGIN: str = "test"
     DISPATCH_AGENT_PASS: str = "test"
+
+    # AL-MARWA — отдельный аккаунт, выбирается когда q_touragent == "AL-MARWA".
+    DISPATCH_AGENT_LOGIN_ALMARWA: str = ""
+    DISPATCH_AGENT_PASS_ALMARWA: str = ""
 
     # Business defaults
     DISPATCH_TOURAGENT_NAME: str = "Хикмет Travel"

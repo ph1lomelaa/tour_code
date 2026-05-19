@@ -358,6 +358,9 @@ export function CreateTourCode() {
   const [selectedHotel, setSelectedHotel] = useState("");
   const [dispatchTouragentName, setDispatchTouragentName] = useState("Хикмет Travel");
   const [dispatchTouragentBin, setDispatchTouragentBin] = useState("080340019818");
+  // Под каким аккаунтом логиниться в партнёрскую систему: "hikmet" или "almarwa".
+  // Креды лежат в .env бэка, фронт шлёт только ключ.
+  const [selectedAgentKey, setSelectedAgentKey] = useState<"hikmet" | "almarwa">("hikmet");
 
   // Tour search
   const [tourOptions, setTourOptions] = useState<TourOption[]>([]);
@@ -1174,6 +1177,7 @@ export function CreateTourCode() {
         dispatch_overrides: {
           q_touragent: dispatchTouragentName.trim(),
           q_touragent_bin: dispatchTouragentBin.trim(),
+          agent_key: selectedAgentKey,
         },
         results: {
           matched: allMatched.map((p) => ({
@@ -1441,8 +1445,9 @@ export function CreateTourCode() {
             </div>
 
             <div className="border border-white/60 rounded-lg p-4 bg-white/30">
-              <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-                <div className="flex gap-2">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-sm font-medium text-[#2B2318]">Тур-оператор</h4>
+                <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
                     size="sm"
@@ -1492,7 +1497,7 @@ export function CreateTourCode() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block mb-1 text-sm text-[#2B2318]">Турагент</label>
+                  <label className="block mb-1 text-sm text-[#2B2318]">Тур-оператор</label>
                   <Input
                     value={dispatchTouragentName}
                     onChange={(e) => setDispatchTouragentName(e.target.value)}
@@ -1500,7 +1505,7 @@ export function CreateTourCode() {
                   />
                 </div>
                 <div>
-                  <label className="block mb-1 text-sm text-[#2B2318]">БИН турагента</label>
+                  <label className="block mb-1 text-sm text-[#2B2318]">БИН тур-оператора</label>
                   <Input
                     value={dispatchTouragentBin}
                     onChange={(e) => setDispatchTouragentBin(e.target.value)}
@@ -1508,6 +1513,45 @@ export function CreateTourCode() {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Тур-агент — выбор аккаунта для логина в партнёрскую систему */}
+            <div className="border border-white/60 rounded-lg p-4 bg-white/30">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-sm font-medium text-[#2B2318]">Тур-агент (аккаунт авторизации)</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={selectedAgentKey === "hikmet" ? "default" : "outline"}
+                    className={
+                      selectedAgentKey === "hikmet"
+                        ? "bg-[#B8985F] text-white hover:bg-[#a0834f]"
+                        : "border-[#E5DDD0] hover:bg-white"
+                    }
+                    onClick={() => setSelectedAgentKey("hikmet")}
+                  >
+                    Хикмет Travel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={selectedAgentKey === "almarwa" ? "default" : "outline"}
+                    className={
+                      selectedAgentKey === "almarwa"
+                        ? "bg-[#B8985F] text-white hover:bg-[#a0834f]"
+                        : "border-[#E5DDD0] hover:bg-white"
+                    }
+                    onClick={() => setSelectedAgentKey("almarwa")}
+                  >
+                    AL-MARWA
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-[#6B6253]">
+                Выбранный тур-агент определяет, под каким логином/паролем
+                бэкенд авторизуется в партнёрской системе при отправке.
+              </p>
             </div>
 
             {/* Манифест */}

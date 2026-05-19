@@ -45,6 +45,26 @@ def _resolve_touragent(snapshot: Dict[str, Any]) -> Tuple[str, str]:
     return override_name, override_bin
 
 
+def _resolve_agent_credentials(snapshot: Dict[str, Any]) -> Tuple[str, str]:
+    """Возвращает (agentlogin, agentpass) в зависимости от выбранного на фронте
+    тур-агента (dispatch_overrides.agent_key). По-умолчанию — Хикмет."""
+    overrides = snapshot.get("dispatch_overrides") or {}
+    if not isinstance(overrides, dict):
+        overrides = {}
+
+    agent_key = str(overrides.get("agent_key") or "").strip().lower()
+
+    if agent_key == "almarwa":
+        login = (settings.DISPATCH_AGENT_LOGIN_ALMARWA or "").strip()
+        password = (settings.DISPATCH_AGENT_PASS_ALMARWA or "").strip()
+        if login and password:
+            return login, password
+        # Если креды AL-MARWA не настроены в .env — падаем на дефолт, чтобы не
+        # отправлять запрос с пустыми кредами.
+
+    return settings.DISPATCH_AGENT_LOGIN, settings.DISPATCH_AGENT_PASS
+
+
 def _resolve_company(snapshot: Dict[str, Any]) -> Tuple[str, str, str]:
     overrides = snapshot.get("dispatch_overrides") or {}
     if not isinstance(overrides, dict):
@@ -142,26 +162,13 @@ def _build_client_block(pilgrim: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _build_json_envelope(single_input: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        "input": single_input,
-        "module": settings.DISPATCH_MODULE,
-        "section": settings.DISPATCH_SECTION,
-        "object": settings.DISPATCH_OBJECT,
-        "param1": settings.DISPATCH_PARAM1,
-        "param2": settings.DISPATCH_PARAM2,
-        "formid": settings.DISPATCH_FORM_ID,
-        "agentlogin": settings.DISPATCH_AGENT_LOGIN,
-        "agentpass": settings.DISPATCH_AGENT_PASS,
-        "return": settings.DISPATCH_RETURN_FIELD,
-    }
-
-
 def build_partner_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     results = snapshot.get("results") or {}
     matched = results.get("matched") or []
     if not isinstance(matched, list):
         matched = []
+
+    agent_login, agent_pass = _resolve_agent_credentials(snapshot)
 
     base_input = _build_base_input(snapshot)
     json_items: List[Dict[str, Any]] = []
@@ -195,8 +202,8 @@ def build_partner_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         "auth": {
             "url": settings.DISPATCH_AUTH_URL,
             "payload": {
-                "agentlogin": settings.DISPATCH_AGENT_LOGIN,
-                "agentpass": settings.DISPATCH_AGENT_PASS,
+                "agentlogin": agent_login,
+                "agentpass": agent_pass,
                 "jump2": settings.DISPATCH_AUTH_JUMP2,
                 "submit": settings.DISPATCH_AUTH_SUBMIT,
             },
