@@ -142,11 +142,16 @@ def _build_client_block(pilgrim: Dict[str, Any]) -> Dict[str, Any]:
     # Extra strip to ensure no leading/trailing whitespace
     doc = normalize_document((pilgrim.get("document") or "").strip().upper()).strip()
     surname = str(pilgrim.get("surname") or "").strip().upper()
+    name = str(pilgrim.get("name") or "").strip().upper()
+
+    # Партнёр режет фамилии < 4 символов (например, "LI") — в таких случаях
+    # шлём имя как фамилию, иначе заявка отклоняется.
+    nmeng = surname if len(surname) >= 4 else (name or surname)
 
     return {
         "clientcounter": 0,
         "c_name_0": settings.DISPATCH_CLIENT_NAME_TEMPLATE,
-        "c_nmeng_0": surname,
+        "c_nmeng_0": nmeng,
         "c_borned_0": settings.DISPATCH_DEFAULT_BIRTH_DATE,
         "c_doc_type_0": settings.DISPATCH_DEFAULT_DOC_TYPE,
         "c_doc_date_0": settings.DISPATCH_DEFAULT_DOC_DATE,
