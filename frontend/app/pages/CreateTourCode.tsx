@@ -1444,9 +1444,47 @@ export function CreateTourCode() {
               </div>
             </div>
 
+            {/* Тур-агент — выбор аккаунта для логина в партнёрскую систему */}
             <div className="border border-white/60 rounded-lg p-4 bg-white/30">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-sm font-medium text-[#2B2318]">Тур-оператор</h4>
+                <h4 className="text-sm font-medium text-[#2B2318]">Тур-агент (аккаунт авторизации)</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={selectedAgentKey === "hikmet" ? "default" : "outline"}
+                    className={
+                      selectedAgentKey === "hikmet"
+                        ? "bg-[#B8985F] text-white hover:bg-[#a0834f]"
+                        : "border-[#E5DDD0] hover:bg-white"
+                    }
+                    onClick={() => setSelectedAgentKey("hikmet")}
+                  >
+                    Хикмет Travel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={selectedAgentKey === "almarwa" ? "default" : "outline"}
+                    className={
+                      selectedAgentKey === "almarwa"
+                        ? "bg-[#B8985F] text-white hover:bg-[#a0834f]"
+                        : "border-[#E5DDD0] hover:bg-white"
+                    }
+                    onClick={() => setSelectedAgentKey("almarwa")}
+                  >
+                    AL-MARWA
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-[#6B6253]">
+                Выбранный тур-агент определяет, под каким логином/паролем
+                бэкенд авторизуется в партнёрской системе при отправке.
+              </p>
+            </div>
+
+            <div className="border border-white/60 rounded-lg p-4 bg-white/30">
+              <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
@@ -1513,45 +1551,6 @@ export function CreateTourCode() {
                   />
                 </div>
               </div>
-            </div>
-
-            {/* Тур-агент — выбор аккаунта для логина в партнёрскую систему */}
-            <div className="border border-white/60 rounded-lg p-4 bg-white/30">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-sm font-medium text-[#2B2318]">Тур-агент (аккаунт авторизации)</h4>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={selectedAgentKey === "hikmet" ? "default" : "outline"}
-                    className={
-                      selectedAgentKey === "hikmet"
-                        ? "bg-[#B8985F] text-white hover:bg-[#a0834f]"
-                        : "border-[#E5DDD0] hover:bg-white"
-                    }
-                    onClick={() => setSelectedAgentKey("hikmet")}
-                  >
-                    Хикмет Travel
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={selectedAgentKey === "almarwa" ? "default" : "outline"}
-                    className={
-                      selectedAgentKey === "almarwa"
-                        ? "bg-[#B8985F] text-white hover:bg-[#a0834f]"
-                        : "border-[#E5DDD0] hover:bg-white"
-                    }
-                    onClick={() => setSelectedAgentKey("almarwa")}
-                  >
-                    AL-MARWA
-                  </Button>
-                </div>
-              </div>
-              <p className="text-xs text-[#6B6253]">
-                Выбранный тур-агент определяет, под каким логином/паролем
-                бэкенд авторизуется в партнёрской системе при отправке.
-              </p>
             </div>
 
             {/* Манифест */}
