@@ -476,6 +476,11 @@ export function CreateTourCode() {
     setDispatchTouragentBin("");
   };
 
+  const applyAlMarwaPreset = () => {
+    setDispatchTouragentName("AL-MARWA");
+    setDispatchTouragentBin("030340005591");
+  };
+
   const clearDispatchOverrides = () => {
     setDispatchTouragentName("");
     setDispatchTouragentBin("");
@@ -1464,6 +1469,15 @@ export function CreateTourCode() {
                     onClick={applyNiyetPreset}
                   >
                     NIYET
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="border-[#E5DDD0] hover:bg-white"
+                    onClick={applyAlMarwaPreset}
+                  >
+                    AL-MARWA
                   </Button>
                   <Button
                     type="button"
