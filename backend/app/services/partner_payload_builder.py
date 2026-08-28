@@ -101,6 +101,8 @@ def _build_base_input(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     airport_start, airport_end = _split_route(route)
     country = (selection.get("country") or "").strip()
 
+    airlines = str(tour.get("airlines") or "").strip().upper() or settings.DISPATCH_DEFAULT_AIRLINE
+
     q_date_from = (tour.get("date_start") or "").strip()
     q_date_to = (tour.get("date_end") or "").strip()
 
@@ -120,7 +122,7 @@ def _build_base_input(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         "q_touragent_bin": q_touragent_bin,
         "q_country": country,
         "q_countryen": _country_en(country),
-        "q_airlines": settings.DISPATCH_DEFAULT_AIRLINE,
+        "q_airlines": airlines,
         "q_airport_start": airport_start,
         "q_airport": airport_end,
         "q_date_from": q_date_from,

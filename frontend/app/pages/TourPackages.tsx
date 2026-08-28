@@ -550,6 +550,7 @@ export function TourPackages() {
                               <TableHead>Паспорт</TableHead>
                               <TableHead>Пакет</TableHead>
                               <TableHead>Тур код</TableHead>
+                              <TableHead>Старый формат</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -561,6 +562,7 @@ export function TourPackages() {
                                 <TableCell>{row.document || "-"}</TableCell>
                                 <TableCell>{row.package_name || "-"}</TableCell>
                                 <TableCell>{row.tour_code || "-"}</TableCell>
+                                <TableCell>{row.tour_code_old || "-"}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>

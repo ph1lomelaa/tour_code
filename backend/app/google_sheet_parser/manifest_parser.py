@@ -44,6 +44,13 @@ class ManifestParser:
                 exclude=excluded,
             )
             iin_col = self._find_column(columns_map, ['iin', 'иин', 'iin number', 'personal id'], exclude=excluded)
+            # Манифесты SCAT/DV: серия ("N") лежит в отдельной колонке от номера.
+            # У Air Astana серия уже входит в номер документа.
+            series_col = self._find_column(
+                columns_map,
+                ['document series', 'doc series', 'series', 'серия документа', 'серия паспорта', 'серия'],
+                exclude=excluded | ({document_col} if document_col else set()),
+            )
 
             if surname_col is None:
                 raise ValueError("В манифесте не найдена колонка surname/last name")
@@ -70,7 +77,9 @@ class ManifestParser:
                         surname = split_surname.upper()
                         name = split_name.upper()
 
-                document = self._normalize_document(self._to_text(row.get(document_col))) if document_col else ""
+                document_raw = self._to_text(row.get(document_col)) if document_col else ""
+                series_raw = self._to_text(row.get(series_col)) if series_col else ""
+                document = self._normalize_document(self._join_series_and_number(series_raw, document_raw))
                 iin = self._normalize_iin(self._to_text(row.get(iin_col))) if iin_col else ""
 
                 if not document and not iin and not name:
@@ -118,7 +127,22 @@ class ManifestParser:
     def _to_text(self, value) -> str:
         if value is None or pd.isna(value):
             return ""
+        # pandas читает колонку с пустыми ячейками как float: 14639484 -> 14639484.0.
+        # Без этого ".0" в конце превращался в лишний ноль в номере паспорта.
+        if isinstance(value, float) and float(value).is_integer():
+            return str(int(value))
         return str(value).strip()
+
+    def _join_series_and_number(self, series: str, number: str) -> str:
+        """Склеивает серию и номер документа: "N" + "14639484" -> "N14639484".
+        Если серия уже входит в номер или её нет — возвращает номер как есть."""
+        number_clean = str(number or "").strip().upper()
+        series_clean = re.sub(r'[^A-ZА-Я]', '', str(series or "").strip().upper())
+        if not series_clean or not number_clean:
+            return number_clean
+        if number_clean.startswith(series_clean):
+            return number_clean
+        return f"{series_clean}{number_clean}"
 
     def _normalize_header(self, value: str) -> str:
         normalized = re.sub(r'[^a-z0-9а-яё]+', ' ', str(value).lower())
@@ -134,8 +158,7 @@ class ManifestParser:
         return parts[0], " ".join(parts[1:])
 
     def _normalize_document(self, value: str) -> str:
-        cleaned = re.sub(r"[^\w]", "", value.upper().strip())
-        return normalize_document(cleaned)
+        return normalize_document(value)
 
     def _normalize_iin(self, value: str) -> str:
         value = value.strip().replace(" ", "")

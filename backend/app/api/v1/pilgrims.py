@@ -22,6 +22,7 @@ class PilgrimListItem(BaseModel):
     document: str = ""
     package_name: str = ""
     tour_code: str = ""
+    tour_code_old: str = ""
     tour_id: str
     tour_name: str = ""
     tour_route: str = ""
@@ -88,6 +89,7 @@ def list_pilgrims(
                 document=normalize_document(row.document or ""),
                 package_name=row.package_name or "",
                 tour_code=row.tour_code or "",
+                tour_code_old=row.tour_code_old or "",
                 tour_id=str(row.tour_id),
                 tour_name=(tour.sheet_name if tour else "") or "",
                 tour_route=(tour.route if tour else "") or "",

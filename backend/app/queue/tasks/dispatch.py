@@ -84,6 +84,47 @@ def _is_valid_tour_code(candidate: str) -> bool:
     return True
 
 
+def _extract_field_code(response: httpx.Response, field_name: str) -> str:
+    """Достаёт значение поля (q_number / q_short_number) из HTML-ответа партнёра."""
+    text = response.text or ""
+
+    # Common partner HTML form pattern: <input name="q_number" value="...">
+    html_field = re.search(
+        rf'name=["\']{field_name}["\'][^>]*value=["\']([^"\']+)["\']',
+        text,
+        re.IGNORECASE,
+    )
+    if html_field:
+        candidate = html_field.group(1).strip()
+        if _is_valid_tour_code(candidate):
+            return candidate
+
+    # Pattern for span/div with id="q_number": <span id="q_number">CODE</span>
+    span_field = re.search(
+        rf'<(?:span|div)[^>]*id=["\']{field_name}["\'][^>]*>([^<]+)</',
+        text,
+        re.IGNORECASE,
+    )
+    if span_field:
+        candidate = span_field.group(1).strip()
+        if _is_valid_tour_code(candidate):
+            return candidate
+
+    js_field = re.search(rf'"{field_name}"\s*:\s*"([^"]+)"', text, re.IGNORECASE)
+    if js_field:
+        candidate = js_field.group(1).strip()
+        if _is_valid_tour_code(candidate):
+            return candidate
+
+    return ""
+
+
+def _extract_tour_code_old(response: httpx.Response) -> str:
+    """Второй код со страницы заявки: q_short_number ("Tour code old number").
+    Партнёр показывает его рядом с основным q_number."""
+    return _extract_field_code(response, "q_short_number")
+
+
 def _extract_tour_code(response: httpx.Response) -> str:
     try:
         payload = response.json()
@@ -105,35 +146,11 @@ def _extract_tour_code(response: httpx.Response) -> str:
             if _is_valid_tour_code(candidate):
                 return candidate
 
+    field_candidate = _extract_field_code(response, "q_number")
+    if field_candidate:
+        return field_candidate
+
     text = response.text or ""
-
-    # Common partner HTML form pattern: <input name="q_number" value="...">
-    html_field = re.search(
-        r'name=["\']q_number["\'][^>]*value=["\']([^"\']+)["\']',
-        text,
-        re.IGNORECASE,
-    )
-    if html_field:
-        candidate = html_field.group(1).strip()
-        if _is_valid_tour_code(candidate):
-            return candidate
-
-    # Pattern for span/div with id="q_number": <span id="q_number">CODE</span>
-    span_field = re.search(
-        r'<(?:span|div)[^>]*id=["\']q_number["\'][^>]*>([^<]+)</',
-        text,
-        re.IGNORECASE,
-    )
-    if span_field:
-        candidate = span_field.group(1).strip()
-        if _is_valid_tour_code(candidate):
-            return candidate
-
-    js_field = re.search(r'"q_number"\s*:\s*"([^"]+)"', text, re.IGNORECASE)
-    if js_field:
-        candidate = js_field.group(1).strip()
-        if _is_valid_tour_code(candidate):
-            return candidate
 
     has_ok_status = re.search(r'"status"\s*:\s*"?200"?', text)
     match = re.search(r'"string"\s*:\s*"([^"]+)"', text)
@@ -323,8 +340,9 @@ def _save_tour_code_for_item(
     tour_id: str | None,
     item_meta: Dict[str, Any],
     tour_code: str,
+    tour_code_old: str = "",
 ) -> None:
-    if not tour_code:
+    if not tour_code and not tour_code_old:
         return
 
     pilgrim = _find_pilgrim(db, tour_id=tour_id, item_meta=item_meta)
@@ -337,7 +355,10 @@ def _save_tour_code_for_item(
         )
         return
 
-    pilgrim.tour_code = tour_code
+    if tour_code:
+        pilgrim.tour_code = tour_code
+    if tour_code_old:
+        pilgrim.tour_code_old = tour_code_old
 
 
 def _build_auth_headers() -> Dict[str, str]:
@@ -522,6 +543,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 # Код из ответа /save не читаем — там лежит невычисленный шаблон.
                 # Настоящий код достаём только из /view (см. ниже).
                 tour_code = ""
+                tour_code_old = ""
                 if not business_error:
                     created_query_id = _extract_created_query_id(response)
                     if created_query_id:
@@ -539,6 +561,9 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                             query_view_text = (query_view_response.text or "")[:4000]
                             if query_view_response.status_code < 400:
                                 tour_code = _extract_tour_code(query_view_response) or tour_code
+                                tour_code_old = (
+                                    _extract_tour_code_old(query_view_response) or tour_code_old
+                                )
                             else:
                                 item_error_message = (
                                     item_error_message
@@ -564,12 +589,13 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                     and not business_error
                 )
 
-                if tour_code:
+                if tour_code or tour_code_old:
                     _save_tour_code_for_item(
                         db,
                         tour_id=str(job.tour_id) if job.tour_id else None,
                         item_meta=item_meta,
                         tour_code=tour_code,
+                        tour_code_old=tour_code_old,
                     )
                 elif not save_request_succeeded:
                     failed_items += 1
@@ -581,6 +607,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                         "status_code": response.status_code,
                         "text": response.text[:4000],
                         "tour_code": tour_code,
+                        "tour_code_old": tour_code_old,
                         "created_query_id": created_query_id,
                         "query_view_url": query_view_url,
                         "query_view_status_code": query_view_status_code,

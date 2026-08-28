@@ -2,10 +2,18 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from typing import List
 import logging
+import re
 
 from app.google_sheet_parser.manifest_parser import manifest_parser
 from app.google_sheet_parser.sheet_pilgrim_parser import sheet_pilgrim_parser
 from app.services.document_rules import normalize_document
+
+
+def _document_digits(value: str) -> str:
+    """Ключ сравнения по цифрам: манифест SCAT даёт "N14639484",
+    а в Google Sheet может лежать "14639484" (или наоборот)."""
+    return re.sub(r"\D", "", normalize_document((value or "").upper()))
+
 
 logger = logging.getLogger(__name__)
 
@@ -88,26 +96,27 @@ async def compare_with_sheet(request: CompareRequest):
 
         # Создаём множества для быстрого поиска (по номеру паспорта)
         manifest_docs = {
-            normalize_document(p.document.upper())
+            _document_digits(p.document)
             for p in request.manifest_pilgrims
-            if normalize_document(p.document.upper())
+            if _document_digits(p.document)
         }
         sheet_docs_map = {
-            normalize_document(p["document"].upper()): p
+            _document_digits(p["document"]): p
             for p in sheet_pilgrims
-            if normalize_document((p.get("document") or "").upper())
+            if _document_digits(p.get("document") or "")
         }
 
         # Те кто есть и в манифесте и в таблице
         matched = []
         for mp in request.manifest_pilgrims:
-            doc = normalize_document(mp.document.upper())
+            doc = _document_digits(mp.document)
             if doc in sheet_docs_map:
                 sp = sheet_docs_map[doc]
                 matched.append(Pilgrim(
                     surname=sp["surname"],
                     name=sp["name"],
-                    document=sp["document"],
+                    # Номер берём из манифеста: там серия ("N") уже приклеена.
+                    document=mp.document or sp["document"],
                     iin=sp.get("iin", ""),
                     manager=sp["manager"]
                 ))
@@ -127,7 +136,7 @@ async def compare_with_sheet(request: CompareRequest):
         # Есть в манифесте, но НЕТ в таблице
         in_manifest_not_in_sheet = []
         for mp in request.manifest_pilgrims:
-            doc = normalize_document(mp.document.upper())
+            doc = _document_digits(mp.document)
             if not doc or doc not in sheet_docs_map:
                 in_manifest_not_in_sheet.append(mp)
 

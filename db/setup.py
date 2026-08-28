@@ -48,6 +48,10 @@ def _apply_lightweight_migrations() -> None:
     with engine.begin() as conn:
         if "tour_code" not in columns:
             conn.execute(text("ALTER TABLE pilgrims ADD COLUMN tour_code VARCHAR(64)"))
+        # Партнёр отдаёт два кода: q_number ("Tour code number") и
+        # q_short_number ("Tour code old number"). Храним оба.
+        if "tour_code_old" not in columns:
+            conn.execute(text("ALTER TABLE pilgrims ADD COLUMN tour_code_old VARCHAR(64)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pilgrims_tour_code ON pilgrims (tour_code)"))
         # Старый глобальный уникальный индекс блокировал повторную отправку
         # того же паломника в разных турах. Дедуп теперь в рамках одного тура.

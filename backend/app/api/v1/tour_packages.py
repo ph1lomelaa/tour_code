@@ -41,6 +41,8 @@ class MatchedPilgrimRow(BaseModel):
     document: str = ""
     package_name: str = ""
     tour_code: str = ""
+    # Второй код партнёра: q_short_number ("Tour code old number").
+    tour_code_old: str = ""
 
 
 class ComparePilgrimRow(BaseModel):
@@ -213,6 +215,7 @@ def get_tour_package(tour_id: str, db: Session = Depends(get_db)):
             document=normalize_document(row.document or ""),
             package_name=row.package_name or "",
             tour_code=row.tour_code or "",
+            tour_code_old=row.tour_code_old or "",
         )
         for row in matched_rows_db
     ]
@@ -341,6 +344,8 @@ def enqueue_tour_dispatch_single(
             "days": int(tour.days or 0),
             "route": tour.route or "",
             "departure_city": tour.departure_city or "",
+            # Авиакомпания тура, а не дефолт из настроек.
+            "airlines": tour.airlines or "",
         },
         "selection": {
             "country": tour.country or "",
@@ -448,6 +453,7 @@ def add_pilgrim_to_tour(
             document=normalize_document(existing.document or ""),
             package_name=existing.package_name or "",
             tour_code=existing.tour_code or "",
+            tour_code_old=existing.tour_code_old or "",
         )
 
     row = Pilgrim(
@@ -469,4 +475,5 @@ def add_pilgrim_to_tour(
         document=normalize_document(row.document or ""),
         package_name=row.package_name or "",
         tour_code=row.tour_code or "",
+        tour_code_old=row.tour_code_old or "",
     )

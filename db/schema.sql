@@ -91,7 +91,8 @@ CREATE TABLE IF NOT EXISTS pilgrims (
     name            VARCHAR(100) NOT NULL,
     document        VARCHAR(50),                   -- c_doc_number
     package_name    VARCHAR(255),                  -- "17.02-24.02 NIYET"
-    tour_code       VARCHAR(64),                   -- код из QAMQOR
+    tour_code       VARCHAR(64),                   -- q_number, "Tour code number"
+    tour_code_old   VARCHAR(64),                   -- q_short_number, "Tour code old number"
     created_at      TIMESTAMP NOT NULL DEFAULT now()
 );
 

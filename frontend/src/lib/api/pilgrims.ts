@@ -7,6 +7,7 @@ export interface PilgrimListItem {
   document: string;
   package_name: string;
   tour_code: string;
+  tour_code_old?: string;
   tour_id: string;
   tour_name: string;
   tour_route: string;

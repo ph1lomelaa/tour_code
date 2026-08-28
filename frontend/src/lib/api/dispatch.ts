@@ -21,6 +21,7 @@ export interface DispatchEnqueueRequest {
     days: number;
     route: string;
     departure_city: string;
+    airlines?: string;
   };
   selection: {
     country: string;
@@ -34,6 +35,7 @@ export interface DispatchEnqueueRequest {
     firmname?: string;
     q_touragent?: string;
     q_touragent_bin?: string;
+    agent_key?: string;
   };
   results: {
     matched: DispatchPerson[];
@@ -46,6 +48,7 @@ export interface DispatchEnqueueRequest {
 
 export interface DispatchJobResponse {
   id: string;
+  tour_id?: string | null;
   status: string;
   attempt_count: number;
   max_attempts: number;

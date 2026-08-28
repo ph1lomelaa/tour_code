@@ -23,6 +23,7 @@ export interface MatchedPilgrimRow {
   document: string;
   package_name: string;
   tour_code: string;
+  tour_code_old?: string;
 }
 
 export interface ComparePilgrimRow {

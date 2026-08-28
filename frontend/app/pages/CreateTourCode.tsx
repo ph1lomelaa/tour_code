@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Progress } from "../components/ui/progress";
@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { Calendar, Clock, MapPin, Building, Upload, Plus } from "lucide-react";
+import { Calendar, Clock, MapPin, Building, Upload, Plus, Plane, Trash2, Download } from "lucide-react";
 import { searchToursByDate, getSheetPilgrims, TourOption, PilgrimInPackage } from "../../src/lib/api/tours";
 import { uploadManifest, Pilgrim } from "../../src/lib/api/manifest";
 import { enqueueDispatchJob, getDispatchJob } from "../../src/lib/api/dispatch";
@@ -44,6 +44,7 @@ type MatchedPilgrim = Pilgrim & {
   package_name: string;
   tour_name: string;
   tour_code?: string;
+  tour_code_old?: string;
   _sourceTable?: MatchedOriginTable;
 };
 type MatchedEditableField = "surname" | "name" | "document" | "package_name" | "tour_name";
@@ -70,13 +71,23 @@ type ComparablePilgrim = {
   iin?: string;
 };
 
+// Правила должны совпадать с backend (app/services/document_rules.py):
+// принимаем любой номер, кроме начинающихся с 8, и режем хвост ".0",
+// который Excel добавляет к числовым ячейкам ("14639484.0").
 const normalizeDocument = (value?: string) => {
-  const cleaned = (value || "").toUpperCase().replace(/[^0-9A-ZА-ЯЁ_]/g, "");
+  const raw = (value || "").toUpperCase().trim().replace(/^([A-ZА-ЯЁ]*\d+)\.0+$/, "$1");
+  const cleaned = raw.replace(/[^0-9A-ZА-ЯЁ_]/g, "");
   if (!cleaned) return "";
   const digits = cleaned.replace(/\D/g, "");
-  if (!digits || !digits.startsWith("1")) return "";
+  if (!digits) return "";
+  if (digits.startsWith("8")) return "";
+  if (/^\d+$/.test(cleaned) && cleaned.length < 7) return "";
   return cleaned;
 };
+
+// Номер без серии: манифест SCAT даёт "N14639484", таблица может хранить
+// "14639484" (или наоборот) — по цифрам они должны совпасть.
+const documentDigits = (value?: string) => normalizeDocument(value).replace(/\D/g, "");
 
 const normalizeIin = (value?: string) =>
   (value || "").replace(/\D/g, "");
@@ -90,6 +101,11 @@ const buildMatchKeys = (pilgrim: ComparablePilgrim): string[] => {
   const doc = normalizeDocument(pilgrim.document);
   if (doc) {
     keys.push(`DOC:${doc}`);
+  }
+
+  const docDigits = documentDigits(pilgrim.document);
+  if (docDigits) {
+    keys.push(`DOCNUM:${docDigits}`);
   }
 
   const iin = normalizeIin(pilgrim.iin);
@@ -331,6 +347,15 @@ const findPassportDrivenManifestMatchIndex = (
   return candidates[0].index;
 };
 
+// Коды авиакомпаний, которые принимает партнёрская система.
+// Добавить новую = дописать строку сюда.
+const AIRLINE_OPTIONS: { code: string; label: string }[] = [
+  { code: "KC", label: "KC — Air Astana" },
+  { code: "DV", label: "DV — SCAT" },
+  { code: "FZ", label: "FZ — Flydubai" },
+  { code: "THY", label: "THY — Turkish Airlines" },
+];
+
 const DISPATCH_STATUS_META: Record<DispatchStatus, { label: string; tone: string }> = {
   draft: { label: "Черновик", tone: "text-stone-600" },
   queued: { label: "В очереди", tone: "text-amber-700" },
@@ -356,6 +381,7 @@ export function CreateTourCode() {
   const [selectedFlight, setSelectedFlight] = useState("");
   const [selectedCountry, setSelectedCountry] = useState("Саудовская Аравия");
   const [selectedHotel, setSelectedHotel] = useState("");
+  const [selectedAirline, setSelectedAirline] = useState("KC");
   const [dispatchTouragentName, setDispatchTouragentName] = useState("Хикмет Travel");
   const [dispatchTouragentBin, setDispatchTouragentBin] = useState("080340019818");
   // Под каким аккаунтом логиниться в партнёрскую систему: "hikmet" или "almarwa".
@@ -384,6 +410,9 @@ export function CreateTourCode() {
   const [dispatchInfo, setDispatchInfo] = useState<string | null>(null);
   const [dispatchInfoTone, setDispatchInfoTone] = useState<"success" | "warning">("success");
   const [dispatchJobId, setDispatchJobId] = useState<string | null>(null);
+  // Тур, созданный последней отправкой — из него подтягиваем готовые тур-коды.
+  const [dispatchTourId, setDispatchTourId] = useState<string | null>(null);
+  const [isLoadingTourCodes, setIsLoadingTourCodes] = useState(false);
   const [dispatchJobStatus, setDispatchJobStatus] = useState<DispatchStatus | null>(null);
   const [dispatchItemsTotal, setDispatchItemsTotal] = useState(0);
   const [dispatchItemsSent, setDispatchItemsSent] = useState(0);
@@ -430,6 +459,7 @@ export function CreateTourCode() {
     setDispatchInfo(null);
     setDispatchInfoTone("success");
     setDispatchJobId(null);
+    setDispatchTourId(null);
     setDispatchJobStatus(null);
     setDispatchItemsTotal(0);
     setDispatchItemsSent(0);
@@ -690,6 +720,7 @@ export function CreateTourCode() {
           package_name: row.package_name || "",
           tour_name: detail.sheet_name || "",
           tour_code: row.tour_code || "",
+          tour_code_old: row.tour_code_old || "",
         }));
         setAllMatched(matchedFromDb);
 
@@ -733,6 +764,55 @@ export function CreateTourCode() {
     };
   }, [prefilledTourId, prefillDoneForTourId]);
 
+  // Тур-коды пишутся воркером в БД (pilgrims.tour_code). Забираем их по tour_id
+  // и раскладываем в таблицу совпадений — сопоставляем по номеру паспорта,
+  // а если его нет — по ФИО.
+  const lastTourCodesFetchRef = useRef(0);
+
+  const refreshTourCodes = async (tourId: string, throttleMs = 0) => {
+    if (!tourId) return;
+    const now = Date.now();
+    if (throttleMs > 0 && now - lastTourCodesFetchRef.current < throttleMs) return;
+    lastTourCodesFetchRef.current = now;
+    setIsLoadingTourCodes(true);
+    try {
+      const detail = await getTourPackage(tourId);
+      type Codes = { tour_code: string; tour_code_old: string };
+      const byDocument = new Map<string, Codes>();
+      const byName = new Map<string, Codes>();
+      for (const row of detail.matched) {
+        const codes: Codes = {
+          tour_code: row.tour_code || "",
+          tour_code_old: row.tour_code_old || "",
+        };
+        if (!codes.tour_code && !codes.tour_code_old) continue;
+        const digits = documentDigits(row.document);
+        if (digits) byDocument.set(digits, codes);
+        const nameKey = `${normalizeNamePart(row.surname)}|${normalizeNamePart(row.name)}`;
+        if (nameKey !== "|") byName.set(nameKey, codes);
+      }
+      if (byDocument.size === 0 && byName.size === 0) return;
+
+      setAllMatched((prev) =>
+        prev.map((p) => {
+          const digits = documentDigits(p.document);
+          const nameKey = `${normalizeNamePart(p.surname)}|${normalizeNamePart(p.name)}`;
+          const codes = (digits && byDocument.get(digits)) || byName.get(nameKey);
+          if (!codes) return p;
+          return {
+            ...p,
+            tour_code: codes.tour_code || p.tour_code || "",
+            tour_code_old: codes.tour_code_old || p.tour_code_old || "",
+          };
+        })
+      );
+    } catch (error) {
+      console.error("Error loading tour codes:", error);
+    } finally {
+      setIsLoadingTourCodes(false);
+    }
+  };
+
   useEffect(() => {
     if (!dispatchJobId) return;
 
@@ -747,8 +827,17 @@ export function CreateTourCode() {
 
         applyDispatchJobSnapshot(snapshot);
 
+        const tourId = snapshot.tour_id || null;
+        if (tourId) setDispatchTourId(tourId);
+
         const status = (snapshot.status || "").toLowerCase() as DispatchStatus;
+        if (status === "sending" && tourId) {
+          // Коды приходят по мере обработки — подтягиваем их уже в процессе,
+          // но не чаще раза в 5 секунд, чтобы не долбить бэкенд.
+          void refreshTourCodes(tourId, 5000);
+        }
         if (status === "sent") {
+          if (tourId) await refreshTourCodes(tourId);
           const total = Number(snapshot.items_total || 0);
           const sent = Number(snapshot.items_sent || 0);
           const note = (snapshot.error_message || "").trim();
@@ -764,6 +853,7 @@ export function CreateTourCode() {
           return;
         }
         if (status === "failed") {
+          if (tourId) await refreshTourCodes(tourId);
           const message = formatDispatchMessage(snapshot.error_message);
           setDispatchError(message);
           setDispatchInfo("Отправка требует проверки");
@@ -857,6 +947,7 @@ export function CreateTourCode() {
     handleTourSelect(tour);
     setSelectedCountry(country);
     setSelectedHotel(hotel);
+    setSelectedAirline(manualTourForm.airlines || "KC");
     setIsCreateTourOpen(false);
     setManualTourForm({ date_start: "", date_end: "", route: "ALA-JED", country: "Саудовская Аравия", hotel: "", airlines: "KC" });
   };
@@ -1070,6 +1161,10 @@ export function CreateTourCode() {
     }
   };
 
+  const tourCodesReadyCount = allMatched.filter(
+    (p) => (p.tour_code || "").trim() || (p.tour_code_old || "").trim()
+  ).length;
+
   const hasResults = allMatched.length > 0 || allInSheetNotManifest.length > 0 || allInManifestNotSheet.length > 0;
 
   const handleAddToMatchedFromSheet = (index: number) => {
@@ -1134,6 +1229,44 @@ export function CreateTourCode() {
     setAllInManifestNotSheet((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Убрать одного паломника из списка перед отправкой (клиенту нужно было
+  // удалять точечно, а не весь манифест целиком).
+  const handleRemoveMatchedRow = (index: number) => {
+    setAllMatched((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDownloadTourCodes = () => {
+    if (allMatched.length === 0) return;
+
+    const header = ["№", "Фамилия", "Имя", "Паспорт", "Пакет", "Тур", "Тур-код", "Тур-код (старый формат)"];
+    const escapeCell = (value: string) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const rows = allMatched.map((p, i) =>
+      [
+        String(i + 1),
+        p.surname || "",
+        p.name || "",
+        p.document || "",
+        p.package_name || "",
+        p.tour_name || "",
+        p.tour_code || "",
+        p.tour_code_old || "",
+      ].map(escapeCell).join(";")
+    );
+
+    // BOM — чтобы Excel открыл кириллицу без «кракозябр».
+    const csv = "\uFEFF" + [header.map(escapeCell).join(";"), ...rows].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const fileName = `tour-codes ${(selectedTour?.sheet_name || "manifest").replace(/[\\/:*?"<>|]/g, "-")}.csv`;
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleCreateTourCode = async () => {
     if (!selectedTour) {
       setManifestError("Сначала выберите тур");
@@ -1167,6 +1300,7 @@ export function CreateTourCode() {
           days: selectedTour.days,
           route: selectedTour.route,
           departure_city: selectedTour.departure_city,
+          airlines: selectedAirline,
         },
         selection: {
           country: selectedCountry,
@@ -1206,6 +1340,7 @@ export function CreateTourCode() {
       });
 
       setDispatchJobId(response.id);
+      if (response.tour_id) setDispatchTourId(response.tour_id);
       applyDispatchJobSnapshot(response);
       setDispatchInfo("Отправка поставлена в очередь");
     } catch (error) {
@@ -1426,6 +1561,24 @@ export function CreateTourCode() {
               </div>
               <div>
                 <label className="block mb-2 text-[#2B2318] flex items-center gap-2">
+                  <Plane className="w-4 h-4 text-[#B8985F]" />
+                  Авиалиния
+                </label>
+                <Select value={selectedAirline} onValueChange={setSelectedAirline}>
+                  <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AIRLINE_OPTIONS.map((airline) => (
+                      <SelectItem key={airline.code} value={airline.code}>
+                        {airline.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block mb-2 text-[#2B2318] flex items-center gap-2">
                   <Building className="w-4 h-4 text-[#B8985F]" />
                   Название отеля
                 </label>
@@ -1444,10 +1597,10 @@ export function CreateTourCode() {
               </div>
             </div>
 
-            {/* Тур-агент — выбор аккаунта для логина в партнёрскую систему */}
+            {/* Тур-оператор — выбор аккаунта для логина в партнёрскую систему */}
             <div className="border border-white/60 rounded-lg p-4 bg-white/30">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-sm font-medium text-[#2B2318]">Тур-агент (аккаунт авторизации)</h4>
+                <h4 className="text-sm font-medium text-[#2B2318]">Тур-оператор (аккаунт авторизации)</h4>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
@@ -1478,7 +1631,7 @@ export function CreateTourCode() {
                 </div>
               </div>
               <p className="text-xs text-[#6B6253]">
-                Выбранный тур-агент определяет, под каким логином/паролем
+                Выбранный тур-оператор определяет, под каким логином/паролем
                 бэкенд авторизуется в партнёрской системе при отправке.
               </p>
             </div>
@@ -1535,7 +1688,7 @@ export function CreateTourCode() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block mb-1 text-sm text-[#2B2318]">Тур-оператор</label>
+                  <label className="block mb-1 text-sm text-[#2B2318]">Тур-агент</label>
                   <Input
                     value={dispatchTouragentName}
                     onChange={(e) => setDispatchTouragentName(e.target.value)}
@@ -1543,7 +1696,7 @@ export function CreateTourCode() {
                   />
                 </div>
                 <div>
-                  <label className="block mb-1 text-sm text-[#2B2318]">БИН тур-оператора</label>
+                  <label className="block mb-1 text-sm text-[#2B2318]">БИН тур-агента</label>
                   <Input
                     value={dispatchTouragentBin}
                     onChange={(e) => setDispatchTouragentBin(e.target.value)}
@@ -1629,9 +1782,40 @@ export function CreateTourCode() {
               {/* Таблица 1: Совпадения */}
               {allMatched.length > 0 && (
                 <div className="mb-6">
-                  <h4 className="mb-2 text-[#2B2318] font-medium">
-                    Совпадения ({allMatched.length})
-                  </h4>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-[#2B2318] font-medium">
+                      Совпадения ({allMatched.length})
+                      {tourCodesReadyCount > 0 && (
+                        <span className="ml-2 text-sm text-green-700">
+                          · тур-коды: {tourCodesReadyCount}/{allMatched.length}
+                        </span>
+                      )}
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {dispatchTourId && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                          disabled={isLoadingTourCodes}
+                          onClick={() => refreshTourCodes(dispatchTourId)}
+                        >
+                          {isLoadingTourCodes ? "Обновление..." : "Обновить тур-коды"}
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                        onClick={handleDownloadTourCodes}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Скачать тур-коды
+                      </Button>
+                    </div>
+                  </div>
                   <div className="border border-[#E5DDD0] rounded-lg overflow-hidden">
                     <Table>
                       <TableHeader>
@@ -1642,6 +1826,9 @@ export function CreateTourCode() {
                           <TableHead className="text-[#2B2318]">Паспорт</TableHead>
                           <TableHead className="text-[#2B2318]">Пакет</TableHead>
                           <TableHead className="text-[#2B2318]">Тур</TableHead>
+                          <TableHead className="text-[#2B2318]">Тур-код</TableHead>
+                          <TableHead className="text-[#2B2318]">Старый формат</TableHead>
+                          <TableHead className="text-[#2B2318] w-12"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1658,6 +1845,23 @@ export function CreateTourCode() {
                             <TableCell className="text-[#6B5435]">{p.document || "-"}</TableCell>
                             <TableCell className="text-[#6B5435]">{p.package_name}</TableCell>
                             <TableCell className="text-[#6B5435]">{p.tour_name}</TableCell>
+                            <TableCell className={p.tour_code ? "text-green-700 font-medium" : "text-[#6B5435]"}>
+                              {p.tour_code || "-"}
+                            </TableCell>
+                            <TableCell className="text-[#6B5435]">{p.tour_code_old || "-"}</TableCell>
+                            <TableCell>
+                              <button
+                                type="button"
+                                title="Удалить из списка"
+                                className="text-[#B96464] hover:text-[#8f4a4a]"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleRemoveMatchedRow(i);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -1996,12 +2200,21 @@ export function CreateTourCode() {
 
             <div>
               <label className="block mb-1 text-sm text-[#2B2318]">Авиалиния</label>
-              <Input
-                type="text"
+              <Select
                 value={manualTourForm.airlines}
-                onChange={(e) => setManualTourForm((f) => ({ ...f, airlines: e.target.value }))}
-                className="bg-white/40 border-white/60 focus:border-[#B8985F]"
-              />
+                onValueChange={(value) => setManualTourForm((f) => ({ ...f, airlines: value }))}
+              >
+                <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AIRLINE_OPTIONS.map((airline) => (
+                    <SelectItem key={airline.code} value={airline.code}>
+                      {airline.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

@@ -42,6 +42,9 @@ class DispatchTourSnapshot(BaseModel):
     days: int = 0
     route: str = ""
     departure_city: str = ""
+    # Код авиакомпании из формы (KC / DV / FZ / THY).
+    # Пусто -> берём DISPATCH_DEFAULT_AIRLINE.
+    airlines: str = ""
 
 
 class DispatchSelectionSnapshot(BaseModel):
@@ -79,6 +82,8 @@ class DispatchEnqueueRequest(BaseModel):
 
 class DispatchJobResponse(BaseModel):
     id: str
+    # Тур, созданный этой отправкой: по нему фронт забирает тур-коды паломников.
+    tour_id: Optional[str] = None
     status: str
     attempt_count: int
     max_attempts: int
@@ -116,6 +121,7 @@ def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
     """Создаёт Tour, Pilgrim и TourOffer записи из снапшота."""
     t = request.tour
     s = request.selection
+    airline = (t.airlines or "").strip().upper() or settings.DISPATCH_DEFAULT_AIRLINE
 
     tour = Tour(
         spreadsheet_id=t.spreadsheet_id,
@@ -126,7 +132,7 @@ def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
         days=t.days,
         route=t.route or s.flight,
         departure_city=t.departure_city,
-        airlines=settings.DISPATCH_DEFAULT_AIRLINE,
+        airlines=airline,
         country=s.country,
         hotel=s.hotel,
         remark=s.remark or None,
@@ -177,7 +183,6 @@ def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
     route = (t.route or s.flight or "").strip().upper()
     if "-" in route:
         dep, arr = route.split("-", 1)
-        airline = settings.DISPATCH_DEFAULT_AIRLINE
         db.add(TourOffer(
             tour_id=tour.id, offer_index=0, offer_type="flight",
             date_from=t.date_start, date_to=t.date_start,
@@ -252,6 +257,7 @@ def _as_job_response(job: DispatchJob) -> DispatchJobResponse:
 
     return DispatchJobResponse(
         id=str(job.id),
+        tour_id=str(job.tour_id) if job.tour_id else None,
         status=job.status.value if hasattr(job.status, "value") else str(job.status),
         attempt_count=job.attempt_count,
         max_attempts=job.max_attempts,
