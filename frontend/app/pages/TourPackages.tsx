@@ -9,10 +9,11 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Download } from "lucide-react";
 import {
   addTourPackagePilgrim,
   ComparePilgrimRow,
+  downloadTourPackageExcel,
   enqueueTourPackageSingle,
   getTourPackage,
   listTourPackages,
@@ -68,6 +69,7 @@ export function TourPackages() {
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [selectedPackageDetail, setSelectedPackageDetail] = useState<TourPackageDetailResponse | null>(null);
   const [matchedRows, setMatchedRows] = useState<MatchedPilgrimRow[]>([]);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [sheetOnlyRows, setSheetOnlyRows] = useState<ComparePilgrimRow[]>([]);
   const [manifestOnlyRows, setManifestOnlyRows] = useState<ComparePilgrimRow[]>([]);
 
@@ -405,6 +407,21 @@ export function TourPackages() {
   };
 
   const matchedCount = matchedRows.length;
+
+  // Выгрузка тянется из БД, поэтому доступна и позже, а не только сразу
+  // после отправки.
+  const handleDownloadExcel = async () => {
+    if (!selectedPackageId) return;
+    setIsExportingExcel(true);
+    try {
+      const baseName = (selectedPackageDetail?.sheet_name || "тур").replace(/[\\/:*?"<>|]/g, "-");
+      await downloadTourPackageExcel(selectedPackageId, `Тур-коды ${baseName}.xlsx`);
+    } catch (error) {
+      console.error("Error exporting tour package:", error);
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
   const inSheetOnlyCount = sheetOnlyRows.length;
   const inManifestOnlyCount = manifestOnlyRows.length;
 
@@ -539,7 +556,20 @@ export function TourPackages() {
                     </div>
 
                     <div>
-                      <h4 className="mb-2 text-[#2B2318] font-medium">Совпадения ({matchedCount})</h4>
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <h4 className="text-[#2B2318] font-medium">Совпадения ({matchedCount})</h4>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                          disabled={!selectedPackageId || isExportingExcel}
+                          onClick={handleDownloadExcel}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          {isExportingExcel ? "Готовим файл..." : "Скачать Excel"}
+                        </Button>
+                      </div>
                       <div className="border border-[#E5DDD0] rounded-lg overflow-hidden">
                         <Table>
                           <TableHeader>

@@ -21,7 +21,7 @@ import { Calendar, Clock, MapPin, Building, Upload, Plus, Plane, Trash2, Downloa
 import { searchToursByDate, getSheetPilgrims, TourOption, PilgrimInPackage } from "../../src/lib/api/tours";
 import { uploadManifest, Pilgrim } from "../../src/lib/api/manifest";
 import { enqueueDispatchJob, getDispatchJob } from "../../src/lib/api/dispatch";
-import { getTourPackage } from "../../src/lib/api/tourPackages";
+import { downloadTourPackageExcel, getTourPackage } from "../../src/lib/api/tourPackages";
 import { useSearchParams } from "react-router";
 
 // Список отелей
@@ -413,6 +413,7 @@ export function CreateTourCode() {
   // Тур, созданный последней отправкой — из него подтягиваем готовые тур-коды.
   const [dispatchTourId, setDispatchTourId] = useState<string | null>(null);
   const [isLoadingTourCodes, setIsLoadingTourCodes] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [dispatchJobStatus, setDispatchJobStatus] = useState<DispatchStatus | null>(null);
   const [dispatchItemsTotal, setDispatchItemsTotal] = useState(0);
   const [dispatchItemsSent, setDispatchItemsSent] = useState(0);
@@ -1235,8 +1236,24 @@ export function CreateTourCode() {
     setAllMatched((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleDownloadTourCodes = () => {
+  // Тур уже сохранён -> берём готовый .xlsx с бэка (он же доступен позже на
+  // странице «Пакеты с тур кодом»). До отправки тура в БД ещё нет — выгружаем
+  // текущую таблицу как CSV.
+  const handleDownloadTourCodes = async () => {
     if (allMatched.length === 0) return;
+
+    if (dispatchTourId) {
+      setIsExportingExcel(true);
+      try {
+        const baseName = (selectedTour?.sheet_name || "тур").replace(/[\\/:*?"<>|]/g, "-");
+        await downloadTourPackageExcel(dispatchTourId, `Тур-коды ${baseName}.xlsx`);
+        return;
+      } catch (error) {
+        console.error("Error exporting excel, fallback to CSV:", error);
+      } finally {
+        setIsExportingExcel(false);
+      }
+    }
 
     const header = ["№", "Фамилия", "Имя", "Паспорт", "Пакет", "Тур", "Тур-код", "Тур-код (старый формат)"];
     const escapeCell = (value: string) => `"${String(value ?? "").replace(/"/g, '""')}"`;
@@ -1809,10 +1826,11 @@ export function CreateTourCode() {
                         size="sm"
                         variant="outline"
                         className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                        disabled={isExportingExcel}
                         onClick={handleDownloadTourCodes}
                       >
                         <Download className="w-4 h-4 mr-2" />
-                        Скачать тур-коды
+                        {isExportingExcel ? "Готовим файл..." : "Скачать тур-коды"}
                       </Button>
                     </div>
                   </div>

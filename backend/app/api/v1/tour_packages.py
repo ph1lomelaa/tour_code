@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from io import BytesIO
 from typing import List, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
@@ -277,6 +280,68 @@ def get_tour_package(tour_id: str, db: Session = Depends(get_db)):
         matched=matched,
         in_sheet_not_in_manifest=in_sheet_not_in_manifest,
         in_manifest_not_in_sheet=in_manifest_not_in_sheet,
+    )
+
+
+@router.get("/{tour_id}/export")
+def export_tour_package(tour_id: str, db: Session = Depends(get_db)):
+    """Выгрузка списка паломников тура с тур-кодами в .xlsx.
+    Доступна в любой момент — данные берутся из БД, а не из состояния страницы."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from openpyxl.utils import get_column_letter
+
+    tour = db.get(Tour, tour_id)
+    if tour is None:
+        raise HTTPException(status_code=404, detail="Тур не найден")
+
+    rows = (
+        db.query(Pilgrim)
+        .filter(Pilgrim.tour_id == tour.id)
+        .order_by(Pilgrim.surname.asc(), Pilgrim.name.asc(), Pilgrim.created_at.asc())
+        .all()
+    )
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Тур-коды"
+
+    headers = [
+        "№", "Фамилия", "Имя", "Паспорт", "Пакет",
+        "Тур-код", "Тур-код (старый формат)",
+    ]
+    sheet.append(headers)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+
+    for index, row in enumerate(rows, start=1):
+        sheet.append([
+            index,
+            row.surname or "",
+            row.name or "",
+            normalize_document(row.document or ""),
+            row.package_name or "",
+            row.tour_code or "",
+            row.tour_code_old or "",
+        ])
+
+    widths = [5, 22, 22, 16, 24, 20, 24]
+    for column_index, width in enumerate(widths, start=1):
+        sheet.column_dimensions[get_column_letter(column_index)].width = width
+    sheet.freeze_panes = "A2"
+
+    stream = BytesIO()
+    workbook.save(stream)
+    stream.seek(0)
+
+    base_name = (tour.sheet_name or tour.route or "tour").strip() or "tour"
+    file_name = f"Тур-коды {base_name}.xlsx"
+    return StreamingResponse(
+        stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}",
+        },
     )
 
 

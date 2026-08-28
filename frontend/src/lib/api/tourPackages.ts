@@ -112,6 +112,26 @@ export const addTourPackagePilgrim = async (
   return response.data;
 };
 
+/**
+ * Скачивает список паломников тура с тур-кодами в .xlsx.
+ * Данные берутся из БД, поэтому выгрузить можно в любой момент,
+ * а не только сразу после отправки.
+ */
+export const downloadTourPackageExcel = async (tourId: string, fileName: string) => {
+  const response = await api.get(`/api/v1/tour-packages/${tourId}/export`, {
+    responseType: 'blob',
+  });
+
+  const url = URL.createObjectURL(response.data as Blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
 export const enqueueTourPackageSingle = async (
   tourId: string,
   payload: TourPackageDispatchSinglePayload
