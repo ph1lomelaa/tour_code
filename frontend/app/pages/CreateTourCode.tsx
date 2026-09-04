@@ -507,7 +507,7 @@ export function CreateTourCode() {
 
   const applyNiyetPreset = () => {
     setDispatchTouragentName("NIYET");
-    setDispatchTouragentBin("");
+    setDispatchTouragentBin("230940022228");
   };
 
   const applyAlMarwaPreset = () => {
