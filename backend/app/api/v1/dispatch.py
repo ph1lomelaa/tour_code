@@ -31,6 +31,7 @@ class DispatchPerson(BaseModel):
     document: str = ""
     package_name: str = ""
     tour_name: str = ""
+    resident_status: str = "резидент"
 
 
 class DispatchTourSnapshot(BaseModel):
@@ -173,6 +174,7 @@ def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
                 name=(p.name or "").strip().upper(),
                 document=normalized_document,
                 package_name=p.package_name or None,
+                resident_status="нерезидент" if p.resident_status == "нерезидент" else "резидент",
                 tour_code=None,
             )
             db.add(pilgrim)

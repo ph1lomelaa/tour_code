@@ -24,6 +24,7 @@ export interface MatchedPilgrimRow {
   package_name: string;
   tour_code: string;
   tour_code_old?: string;
+  resident_status?: 'резидент' | 'нерезидент';
 }
 
 export interface ComparePilgrimRow {

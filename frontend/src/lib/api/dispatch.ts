@@ -9,6 +9,7 @@ export interface DispatchPerson {
   document: string;
   package_name?: string;
   tour_name?: string;
+  resident_status?: 'резидент' | 'нерезидент';
 }
 
 export interface DispatchEnqueueRequest {

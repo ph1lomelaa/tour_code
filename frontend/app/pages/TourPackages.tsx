@@ -23,6 +23,8 @@ import {
 } from "../../src/lib/api/tourPackages";
 import { getDispatchJob } from "../../src/lib/api/dispatch";
 
+const KAMKOR_PORTAL_URL = "https://report.fondkamkor.kz";
+
 const toIsoDate = (dateValue: string): string => {
   const parts = dateValue.split(".");
   if (parts.length !== 3) return "";
@@ -499,16 +501,26 @@ export function TourPackages() {
                     : "Выберите тур"}
                 </h2>
                 {selectedPackageDetail && (
-                  <Button
-                    className="bg-gradient-to-r from-[#B8985F] to-[#A88952] hover:from-[#A88952] hover:to-[#8B6F47] text-white"
-                    onClick={() => {
-                      setIsManualCreateOpen(true);
-                      setActionError(null);
-                    }}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Создать
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-[#B8985F] text-[#6B5435] hover:bg-[#F5F1EA]"
+                      onClick={() => window.open(KAMKOR_PORTAL_URL, "_blank", "noopener,noreferrer")}
+                    >
+                      Открыть Камкор
+                    </Button>
+                    <Button
+                      className="bg-gradient-to-r from-[#B8985F] to-[#A88952] hover:from-[#A88952] hover:to-[#8B6F47] text-white"
+                      onClick={() => {
+                        setIsManualCreateOpen(true);
+                        setActionError(null);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Создать
+                    </Button>
+                  </div>
                 )}
               </div>
 

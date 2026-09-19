@@ -162,7 +162,11 @@ def _build_client_block(pilgrim: Dict[str, Any]) -> Dict[str, Any]:
         "c_bin_0": "",
         "c_sex_0": "",
         "c_address_0": "",
-        "c_resident_0": settings.DISPATCH_DEFAULT_RESIDENT,
+        "c_resident_0": (
+            "нерезидент"
+            if str(pilgrim.get("resident_status") or "").strip().lower() == "нерезидент"
+            else settings.DISPATCH_DEFAULT_RESIDENT
+        ),
         "c_rnn_0": "",
         "c_phone2_0": "",
         "c_cellphone2_0": "",

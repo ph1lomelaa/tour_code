@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
 import { Progress } from "../components/ui/progress";
 import {
   Select,
@@ -34,7 +35,12 @@ const hotels = [
   "Anjum Hotel Makkah",
   "Elaf Kinda Hotel",
   "Millennium Al Aqeeq Hotel",
+  "Raffles Makkah",
+  "Jumeirah Jabal Omar Makkah",
+  "Dar Al Tawhid Makkah",
 ];
+
+const KAMKOR_PORTAL_URL = "https://report.fondkamkor.kz";
 
 // Паломник с привязкой к пакету
 type PilgrimWithPackage = PilgrimInPackage & { package_name: string; tour_name: string };
@@ -45,6 +51,7 @@ type MatchedPilgrim = Pilgrim & {
   tour_name: string;
   tour_code?: string;
   tour_code_old?: string;
+  resident_status?: "резидент" | "нерезидент";
   _sourceTable?: MatchedOriginTable;
 };
 type MatchedEditableField = "surname" | "name" | "document" | "package_name" | "tour_name";
@@ -353,6 +360,7 @@ const AIRLINE_OPTIONS: { code: string; label: string }[] = [
   { code: "KC", label: "KC — Air Astana" },
   { code: "DV", label: "DV — SCAT" },
   { code: "FZ", label: "FZ — Flydubai" },
+  { code: "EK", label: "EK — Emirates" },
   { code: "THY", label: "THY — Turkish Airlines" },
 ];
 
@@ -423,6 +431,7 @@ export function CreateTourCode() {
   const [prefillDoneForTourId, setPrefillDoneForTourId] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [matchedEditor, setMatchedEditor] = useState<MatchedEditorState | null>(null);
+  const [pendingNonresidentIndex, setPendingNonresidentIndex] = useState<number | null>(null);
 
   // Manual tour creation
   const [isCreateTourOpen, setIsCreateTourOpen] = useState(false);
@@ -722,6 +731,7 @@ export function CreateTourCode() {
           tour_name: detail.sheet_name || "",
           tour_code: row.tour_code || "",
           tour_code_old: row.tour_code_old || "",
+          resident_status: row.resident_status === "нерезидент" ? "нерезидент" : "резидент",
         }));
         setAllMatched(matchedFromDb);
 
@@ -923,6 +933,28 @@ export function CreateTourCode() {
     "ALA-JED": "Almaty", "ALA-MED": "Almaty",
     "NQZ-JED": "Nur-Sultan", "NQZ-MED": "Nur-Sultan", "NQZ-ALA": "Nur-Sultan",
     "SCO-MED": "Shymkent", "SCO-JED": "Shymkent", "CIT-MED": "Shymkent",
+    "DXB-MED": "Dubai", "DXB-JED": "Dubai",
+  };
+
+  const setResidentStatus = (index: number, resident_status: "резидент" | "нерезидент") => {
+    setAllMatched((prev) => prev.map((row, rowIndex) => (
+      rowIndex === index ? { ...row, resident_status } : row
+    )));
+  };
+
+  const handleNonresidentChange = (index: number, checked: boolean) => {
+    if (checked) {
+      setPendingNonresidentIndex(index);
+      return;
+    }
+    setResidentStatus(index, "резидент");
+  };
+
+  const confirmNonresident = () => {
+    if (pendingNonresidentIndex !== null) {
+      setResidentStatus(pendingNonresidentIndex, "нерезидент");
+    }
+    setPendingNonresidentIndex(null);
   };
 
   const handleCreateTourManual = () => {
@@ -1337,6 +1369,7 @@ export function CreateTourCode() {
             document: p.document || "",
             package_name: p.package_name,
             tour_name: p.tour_name,
+            resident_status: p.resident_status === "нерезидент" ? "нерезидент" : "резидент",
           })),
           in_sheet_not_in_manifest: allInSheetNotManifest.map((p) => ({
             surname: p.surname,
@@ -1846,6 +1879,7 @@ export function CreateTourCode() {
                           <TableHead className="text-[#2B2318]">Тур</TableHead>
                           <TableHead className="text-[#2B2318]">Тур-код</TableHead>
                           <TableHead className="text-[#2B2318]">Старый формат</TableHead>
+                          <TableHead className="text-[#2B2318] text-center">Нерезидент</TableHead>
                           <TableHead className="text-[#2B2318] w-12"></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1867,6 +1901,15 @@ export function CreateTourCode() {
                               {p.tour_code || "-"}
                             </TableCell>
                             <TableCell className="text-[#6B5435]">{p.tour_code_old || "-"}</TableCell>
+                            <TableCell className="text-center" onDoubleClick={(event) => event.stopPropagation()}>
+                              <Checkbox
+                                checked={p.resident_status === "нерезидент"}
+                                aria-label={`Отметить ${p.surname} ${p.name} как нерезидента`}
+                                className="border-[#B8985F] data-[state=checked]:bg-[#B8985F]"
+                                onCheckedChange={(checked) => handleNonresidentChange(i, checked === true)}
+                                onClick={(event) => event.stopPropagation()}
+                              />
+                            </TableCell>
                             <TableCell>
                               <button
                                 type="button"
@@ -2015,6 +2058,14 @@ export function CreateTourCode() {
               >
                 Отмена
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-[#B8985F] text-[#6B5435] hover:bg-[#F5F1EA]"
+                onClick={() => window.open(KAMKOR_PORTAL_URL, "_blank", "noopener,noreferrer")}
+              >
+                Открыть Камкор
+              </Button>
             </div>
             {dispatchHasProgress && (
               <div className="mt-4 rounded-xl border border-[#E5DDD0] bg-[#FCF8F2] p-4">
@@ -2136,6 +2187,34 @@ export function CreateTourCode() {
                 </div>
               </div>
             )}
+
+            {pendingNonresidentIndex !== null && allMatched[pendingNonresidentIndex] && (
+              <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
+                <div className="w-full max-w-md rounded-xl border border-[#E5DDD0] bg-white p-5 shadow-2xl">
+                  <h4 className="text-[#2B2318] font-medium">Подтвердите статус</h4>
+                  <p className="mt-3 text-sm text-[#6B5435]">
+                    Точно отметить {allMatched[pendingNonresidentIndex].surname} {allMatched[pendingNonresidentIndex].name} как нерезидента? Этот статус будет передан в Камкор.
+                  </p>
+                  <div className="mt-5 flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-[#D8CCB8] text-[#6B5435]"
+                      onClick={() => setPendingNonresidentIndex(null)}
+                    >
+                      Нет, отмена
+                    </Button>
+                    <Button
+                      type="button"
+                      className="bg-[#B8985F] text-white hover:bg-[#A88952]"
+                      onClick={confirmNonresident}
+                    >
+                      Да, отметить
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -2182,7 +2261,7 @@ export function CreateTourCode() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {["ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA", "SCO-MED", "SCO-JED", "CIT-MED"].map((r) => (
+                  {["ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA", "SCO-MED", "SCO-JED", "CIT-MED", "DXB-MED", "DXB-JED"].map((r) => (
                     <SelectItem key={r} value={r}>{r}</SelectItem>
                   ))}
                 </SelectContent>

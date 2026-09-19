@@ -148,6 +148,8 @@ def _get_departure_city(route: str) -> str:
         "NQZ-MED": "Nur-Sultan",
         "NQZ-ALA": "Nur-Sultan",
         "CIT-MED": "Shymkent",
+        "DXB-MED": "Dubai",
+        "DXB-JED": "Dubai",
     }
     return route_map.get(route, "Не указан")
 

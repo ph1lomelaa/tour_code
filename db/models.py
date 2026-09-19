@@ -137,6 +137,7 @@ class Pilgrim(Base):
     name = Column(String(100), nullable=False, index=True)
     document = Column(String(50), nullable=True, index=True)          # c_doc_number
     package_name = Column(String(255), nullable=True, index=True)
+    resident_status = Column(String(20), nullable=False, default="резидент")  # c_resident_0
     tour_code = Column(String(64), nullable=True, index=True)         # q_number, "Tour code number"
     tour_code_old = Column(String(64), nullable=True)                 # q_short_number, "Tour code old number"
 

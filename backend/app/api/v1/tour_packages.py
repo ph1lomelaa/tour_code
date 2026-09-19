@@ -46,6 +46,7 @@ class MatchedPilgrimRow(BaseModel):
     tour_code: str = ""
     # Второй код партнёра: q_short_number ("Tour code old number").
     tour_code_old: str = ""
+    resident_status: str = "резидент"
 
 
 class ComparePilgrimRow(BaseModel):
@@ -96,6 +97,7 @@ class DispatchSinglePerson(BaseModel):
     document: str = ""
     package_name: str = ""
     tour_name: str = ""
+    resident_status: str = "резидент"
 
 
 class DispatchSingleOverrides(BaseModel):
@@ -219,6 +221,7 @@ def get_tour_package(tour_id: str, db: Session = Depends(get_db)):
             package_name=row.package_name or "",
             tour_code=row.tour_code or "",
             tour_code_old=row.tour_code_old or "",
+            resident_status=row.resident_status or "резидент",
         )
         for row in matched_rows_db
     ]
@@ -389,6 +392,7 @@ def enqueue_tour_dispatch_single(
             name=name,
             document=document or None,
             package_name=package_name or None,
+            resident_status="нерезидент" if payload.person.resident_status == "нерезидент" else "резидент",
             tour_code=None,
         )
         db.add(existing)
@@ -433,6 +437,7 @@ def enqueue_tour_dispatch_single(
                     "document": document,
                     "package_name": package_name,
                     "tour_name": tour_name,
+                    "resident_status": existing.resident_status or "резидент",
                     "pilgrim_id": str(existing.id),
                 }
             ],
@@ -527,6 +532,7 @@ def add_pilgrim_to_tour(
         name=name,
         document=document or None,
         package_name=package_name or None,
+        resident_status="резидент",
         tour_code=None,
     )
     db.add(row)
@@ -541,4 +547,5 @@ def add_pilgrim_to_tour(
         package_name=row.package_name or "",
         tour_code=row.tour_code or "",
         tour_code_old=row.tour_code_old or "",
+        resident_status=row.resident_status or "резидент",
     )
