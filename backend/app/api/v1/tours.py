@@ -142,6 +142,8 @@ async def search_tours_by_date(
 
 def _get_departure_city(route: str) -> str:
     route_map = {
+        "ALA-DOH-JED": "Almaty",
+        "JED-DOH-ALA": "Jeddah",
         "ALA-JED": "Almaty",
         "ALA-MED": "Almaty",
         "NQZ-JED": "Nur-Sultan",

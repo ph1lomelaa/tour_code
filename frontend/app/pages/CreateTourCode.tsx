@@ -361,6 +361,7 @@ const AIRLINE_OPTIONS: { code: string; label: string }[] = [
   { code: "DV", label: "DV — SCAT" },
   { code: "FZ", label: "FZ — Flydubai" },
   { code: "EK", label: "EK — Emirates" },
+  { code: "QR", label: "QR — Qatar Airways" },
   { code: "THY", label: "THY — Turkish Airlines" },
 ];
 
@@ -930,6 +931,7 @@ export function CreateTourCode() {
   };
 
   const DEPARTURE_CITY: Record<string, string> = {
+    "ALA-DOH-JED": "Almaty", "JED-DOH-ALA": "Jeddah",
     "ALA-JED": "Almaty", "ALA-MED": "Almaty",
     "NQZ-JED": "Nur-Sultan", "NQZ-MED": "Nur-Sultan", "NQZ-ALA": "Nur-Sultan",
     "SCO-MED": "Shymkent", "SCO-JED": "Shymkent", "CIT-MED": "Shymkent",
@@ -2261,7 +2263,7 @@ export function CreateTourCode() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {["ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA", "SCO-MED", "SCO-JED", "CIT-MED", "DXB-MED", "DXB-JED"].map((r) => (
+                  {["ALA-DOH-JED", "JED-DOH-ALA", "ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA", "SCO-MED", "SCO-JED", "CIT-MED", "DXB-MED", "DXB-JED"].map((r) => (
                     <SelectItem key={r} value={r}>{r}</SelectItem>
                   ))}
                 </SelectContent>

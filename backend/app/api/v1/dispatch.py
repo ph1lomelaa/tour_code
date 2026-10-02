@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.services.document_rules import normalize_document
+from app.services.route_utils import route_endpoints
 from db.models import (
     DispatchJob, DispatchJobStatus,
     Tour, TourStatus, Pilgrim, TourOffer,
@@ -43,7 +44,7 @@ class DispatchTourSnapshot(BaseModel):
     days: int = 0
     route: str = ""
     departure_city: str = ""
-    # Код авиакомпании из формы (KC / DV / FZ / THY).
+    # IATA-код авиакомпании из формы (например, KC / DV / FZ / QR).
     # Пусто -> берём DISPATCH_DEFAULT_AIRLINE.
     airlines: str = ""
 
@@ -183,8 +184,8 @@ def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
 
     # --- Offers (outbound + return) ---
     route = (t.route or s.flight or "").strip().upper()
-    if "-" in route:
-        dep, arr = route.split("-", 1)
+    dep, arr = route_endpoints(route)
+    if dep and arr:
         db.add(TourOffer(
             tour_id=tour.id, offer_index=0, offer_type="flight",
             date_from=t.date_start, date_to=t.date_start,

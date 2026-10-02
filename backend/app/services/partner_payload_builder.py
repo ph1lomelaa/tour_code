@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Tuple
 
 from app.core.config import settings
 from app.services.document_rules import normalize_document
+from app.services.route_utils import route_endpoints
 
 
 COUNTRY_EN_MAP = {
@@ -83,14 +84,6 @@ def _country_en(value: str) -> str:
     return COUNTRY_EN_MAP.get(text, text)
 
 
-def _split_route(route: str) -> Tuple[str, str]:
-    raw = (route or "").strip().upper()
-    if "-" not in raw:
-        return "", ""
-    left, right = raw.split("-", 1)
-    return left.strip(), right.strip()
-
-
 def _build_base_input(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     tour = snapshot.get("tour") or {}
     selection = snapshot.get("selection") or {}
@@ -98,7 +91,7 @@ def _build_base_input(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     filialid, firmid, firmname = _resolve_company(snapshot)
 
     route = (tour.get("route") or selection.get("flight") or "").strip()
-    airport_start, airport_end = _split_route(route)
+    airport_start, airport_end = route_endpoints(route)
     country = (selection.get("country") or "").strip()
 
     airlines = str(tour.get("airlines") or "").strip().upper() or settings.DISPATCH_DEFAULT_AIRLINE
