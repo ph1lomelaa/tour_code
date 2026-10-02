@@ -8,7 +8,13 @@ from app.services.route_utils import route_endpoints
 
 
 COUNTRY_EN_MAP = {
+    "Казахстан": "Kazakhstan",
+    "Катар": "Qatar",
+    "Объединенные Арабские Эмираты": "United Arab Emirates",
+    # Поддержка туров, сохранённых до перехода на полное название из справочника.
+    "ОАЭ": "United Arab Emirates",
     "Саудовская Аравия": "Saudi Arabia",
+    "Турция": "Turkey",
 }
 
 

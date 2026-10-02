@@ -215,7 +215,8 @@ class GoogleSheetsService:
         """Извлекает поддерживаемый маршрут из названия листа."""
         routes = [
             "ALA-DOH-JED", "JED-DOH-ALA",
-            "ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA", "CIT-MED",
+            "ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA",
+            "SCO-MED", "SCO-JED", "CIT-MED", "DXB-MED", "DXB-JED",
         ]
 
         text_upper = text.upper()

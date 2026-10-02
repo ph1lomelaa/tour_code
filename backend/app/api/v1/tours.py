@@ -149,6 +149,8 @@ def _get_departure_city(route: str) -> str:
         "NQZ-JED": "Nur-Sultan",
         "NQZ-MED": "Nur-Sultan",
         "NQZ-ALA": "Nur-Sultan",
+        "SCO-MED": "Shymkent",
+        "SCO-JED": "Shymkent",
         "CIT-MED": "Shymkent",
         "DXB-MED": "Dubai",
         "DXB-JED": "Dubai",

@@ -29,6 +29,29 @@ class RoutePayloadTests(unittest.TestCase):
         self.assertEqual(payload["q_airport"], "JED")
         self.assertEqual(payload["q_airlines"], "QR")
 
+    def test_partner_payload_uses_kamkor_country_names(self):
+        countries = {
+            "Казахстан": "Kazakhstan",
+            "Катар": "Qatar",
+            "Объединенные Арабские Эмираты": "United Arab Emirates",
+            "ОАЭ": "United Arab Emirates",
+            "Саудовская Аравия": "Saudi Arabia",
+            "Турция": "Turkey",
+        }
+
+        for country, country_en in countries.items():
+            with self.subTest(country=country):
+                prepared = build_partner_payload(
+                    {
+                        "tour": {"route": "ALA-JED", "days": 1},
+                        "selection": {"country": country},
+                        "results": {"matched": [{"document": "N08462365"}]},
+                    }
+                )
+                payload = prepared["json_items"][0]["payload"]
+                self.assertEqual(payload["q_country"], country)
+                self.assertEqual(payload["q_countryen"], country_en)
+
 
 if __name__ == "__main__":
     unittest.main()

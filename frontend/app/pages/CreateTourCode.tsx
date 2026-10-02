@@ -42,6 +42,33 @@ const hotels = [
 
 const KAMKOR_PORTAL_URL = "https://report.fondkamkor.kz";
 
+// Значения совпадают со справочником countries партнёрской системы.
+const COUNTRY_OPTIONS = [
+  "Саудовская Аравия",
+  "Казахстан",
+  "Катар",
+  "Объединенные Арабские Эмираты",
+  "Турция",
+];
+
+const ROUTE_OPTIONS = [
+  "ALA-DOH-JED",
+  "JED-DOH-ALA",
+  "ALA-JED",
+  "ALA-MED",
+  "NQZ-JED",
+  "NQZ-MED",
+  "NQZ-ALA",
+  "SCO-MED",
+  "SCO-JED",
+  "CIT-MED",
+  "DXB-MED",
+  "DXB-JED",
+];
+
+const normalizeCountryOption = (country?: string) =>
+  country === "ОАЭ" ? "Объединенные Арабские Эмираты" : (country || "Саудовская Аравия");
+
 // Паломник с привязкой к пакету
 type PilgrimWithPackage = PilgrimInPackage & { package_name: string; tour_name: string };
 type ManifestPilgrimWithPackage = Pilgrim & { package_name?: string; tour_name?: string; tour_code?: string };
@@ -712,7 +739,7 @@ export function CreateTourCode() {
         setDays(preselectedTour.days);
         setAvailableFlights(preselectedTour.route ? [preselectedTour.route] : []);
         setSelectedFlight(preselectedTour.route || "");
-        setSelectedCountry(detail.country || "Саудовская Аравия");
+        setSelectedCountry(normalizeCountryOption(detail.country));
         setSelectedHotel(detail.hotel || "");
         setDispatchTouragentName(detail.dispatch_overrides?.q_touragent || "");
         setDispatchTouragentBin(detail.dispatch_overrides?.q_touragent_bin || "");
@@ -1605,9 +1632,9 @@ export function CreateTourCode() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Саудовская Аравия">Саудовская Аравия</SelectItem>
-                    <SelectItem value="ОАЭ">ОАЭ</SelectItem>
-                    <SelectItem value="Турция">Турция</SelectItem>
+                    {COUNTRY_OPTIONS.map((country) => (
+                      <SelectItem key={country} value={country}>{country}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -2263,7 +2290,7 @@ export function CreateTourCode() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {["ALA-DOH-JED", "JED-DOH-ALA", "ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA", "SCO-MED", "SCO-JED", "CIT-MED", "DXB-MED", "DXB-JED"].map((r) => (
+                  {ROUTE_OPTIONS.map((r) => (
                     <SelectItem key={r} value={r}>{r}</SelectItem>
                   ))}
                 </SelectContent>
@@ -2280,8 +2307,9 @@ export function CreateTourCode() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Саудовская Аравия">Саудовская Аравия</SelectItem>
-                  <SelectItem value="ОАЭ">ОАЭ</SelectItem>
+                  {COUNTRY_OPTIONS.map((country) => (
+                    <SelectItem key={country} value={country}>{country}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
