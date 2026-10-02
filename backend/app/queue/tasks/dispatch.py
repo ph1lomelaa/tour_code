@@ -18,6 +18,7 @@ from db.setup import SessionLocal
 from db.models import DispatchJob, DispatchJobStatus, Pilgrim
 from app.services.partner_payload_builder import build_partner_payload
 from app.services.document_rules import normalize_document
+from app.services.dispatch_auth import DispatchAuthError, authenticate
 
 logger = logging.getLogger(__name__)
 
@@ -466,31 +467,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
             if not save_url:
                 raise RuntimeError("DISPATCH_SAVE_URL is not configured")
 
-            # Use explicit cookies like in working version
-            auth_cookies = {"lg": "ru"}
-            auth_response = client.post(
-                auth_url,
-                data=auth_payload,
-                headers=_build_auth_headers(),
-                cookies=auth_cookies
-            )
-            if auth_response.status_code >= 400:
-                raise RuntimeError(f"Auth HTTP {auth_response.status_code}: {auth_response.text[:500]}")
-
-            # Check for auth errors in response body
-            auth_text = auth_response.text or ""
-            if "Invalid username or password" in auth_text:
-                raise RuntimeError("Auth failed: Invalid credentials in .env file")
-
-            # Extract tsagent from response cookies
-            tsagent = None
-            for cookie in auth_response.cookies.jar:
-                if cookie.name == "tsagent":
-                    tsagent = cookie.value
-                    break
-
-            if not tsagent:
-                raise RuntimeError("Auth failed: tsagent cookie was not set")
+            tsagent = authenticate(client, auth_url, auth_payload, _build_auth_headers())
 
             logger.info("Dispatch auth succeeded, session cookie received")
 
@@ -499,7 +476,6 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 "stage": "auth",
                 "auth_url": auth_url,
                 "save_url": save_url,
-                "auth_status_code": auth_response.status_code,
                 "json_items_total": total_items,
                 "json_items_sent": 0,
                 "progress": {
@@ -717,7 +693,8 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
             job.error_message = _public_dispatch_error_message(technical_error)
             logger.exception("Dispatch job failed: %s", technical_error)
 
-            if job.attempt_count >= job.max_attempts:
+            non_retryable = isinstance(exc, DispatchAuthError) and not exc.retryable
+            if non_retryable or job.attempt_count >= job.max_attempts:
                 job.status = DispatchJobStatus.FAILED
                 job.next_attempt_at = None
                 db.commit()
