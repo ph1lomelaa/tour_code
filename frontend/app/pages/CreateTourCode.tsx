@@ -2316,13 +2316,19 @@ export function CreateTourCode() {
 
             <div>
               <label className="block mb-1 text-sm text-[#2B2318]">Отель</label>
-              <Input
-                type="text"
-                placeholder="Название отеля"
+              <Select
                 value={manualTourForm.hotel}
-                onChange={(e) => setManualTourForm((f) => ({ ...f, hotel: e.target.value }))}
-                className="bg-white/40 border-white/60 focus:border-[#B8985F]"
-              />
+                onValueChange={(hotel) => setManualTourForm((f) => ({ ...f, hotel }))}
+              >
+                <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
+                  <SelectValue placeholder="Выберите отель" />
+                </SelectTrigger>
+                <SelectContent>
+                  {hotels.map((hotel) => (
+                    <SelectItem key={hotel} value={hotel}>{hotel}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
