@@ -38,6 +38,8 @@ const hotels = [
   "Raffles Makkah",
   "Jumeirah Jabal Omar Makkah",
   "Dar Al Tawhid Makkah",
+  "Dar Al Taqwa Madinah 5*",
+  "Courtyard by Marriott",
 ];
 
 const KAMKOR_PORTAL_URL = "https://report.fondkamkor.kz";
@@ -62,6 +64,7 @@ const ROUTE_OPTIONS = [
   "SCO-MED",
   "SCO-JED",
   "CIT-MED",
+  "CIT-JED",
   "DXB-MED",
   "DXB-JED",
 ];
@@ -962,6 +965,7 @@ export function CreateTourCode() {
     "ALA-JED": "Almaty", "ALA-MED": "Almaty",
     "NQZ-JED": "Nur-Sultan", "NQZ-MED": "Nur-Sultan", "NQZ-ALA": "Nur-Sultan",
     "SCO-MED": "Shymkent", "SCO-JED": "Shymkent", "CIT-MED": "Shymkent",
+    "CIT-JED": "Shymkent",
     "DXB-MED": "Dubai", "DXB-JED": "Dubai",
   };
 

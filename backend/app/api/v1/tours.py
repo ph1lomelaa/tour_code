@@ -152,6 +152,7 @@ def _get_departure_city(route: str) -> str:
         "SCO-MED": "Shymkent",
         "SCO-JED": "Shymkent",
         "CIT-MED": "Shymkent",
+        "CIT-JED": "Shymkent",
         "DXB-MED": "Dubai",
         "DXB-JED": "Dubai",
     }

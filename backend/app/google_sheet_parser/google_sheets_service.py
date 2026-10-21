@@ -216,7 +216,7 @@ class GoogleSheetsService:
         routes = [
             "ALA-DOH-JED", "JED-DOH-ALA",
             "ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA",
-            "SCO-MED", "SCO-JED", "CIT-MED", "DXB-MED", "DXB-JED",
+            "SCO-MED", "SCO-JED", "CIT-MED", "CIT-JED", "DXB-MED", "DXB-JED",
         ]
 
         text_upper = text.upper()
