@@ -108,6 +108,8 @@ class SettingsApiTests(unittest.TestCase):
     def test_route_and_touragent_checked_in_kamkor(self):
         self.assertEqual(verify("routes", {"code": "ALA-JED"})["status"], "found")
         self.assertEqual(verify("routes", {"code": "ALA-XXX"})["status"], "not_found")
+        # Пересадка не уходит на Камкор — её нет в справочнике, но маршрут валиден.
+        self.assertEqual(verify("routes", {"code": "ALA-GYD-JED"})["status"], "found")
         self.assertEqual(verify("routes", {"code": "ALAJED"})["status"], "invalid")
         found = verify("touragents", {"bin": "080340019818"})
         self.assertEqual(found["extra"]["name"], "Хикмет Тревел")

@@ -197,8 +197,11 @@ def _route_airports(data: Dict[str, Any]) -> List[str]:
 
 
 def _verify_route(kd: KamkorDictionaries, data: Dict[str, Any]) -> Dict[str, Any]:
+    # В заявку уходят только первый и последний аэропорт (route_endpoints):
+    # пересадку (например, GYD в AKX-GYD-JED) Камкор не получает и не проверяет.
+    airports = _route_airports(data)
     names = []
-    for code in _route_airports(data):
+    for code in (airports[0], airports[-1]):
         variants = kd.lookup("airports", "iata", code)
         found = _exact(variants, "iata", code)
         if not found:
@@ -206,7 +209,10 @@ def _verify_route(kd: KamkorDictionaries, data: Dict[str, Any]) -> Dict[str, Any
                                    lambda v: f"{v.get('iata')} — {v.get('airport_en') or v.get('airport', '')}", variants)
             return _result("not_found", f"Аэропорта {code} нет в справочнике Камкора", suggestions)
         names.append(f"{code} ({found.get('airport_en') or found.get('airport') or found.get('country', '')})")
-    return _result("found", "Аэропорты есть на Камкоре: " + ", ".join(names))
+    message = "Аэропорты вылета и прилёта есть на Камкоре: " + ", ".join(names)
+    if len(airports) > 2:
+        message += f". Пересадка {', '.join(airports[1:-1])} на Камкор не отправляется"
+    return _result("found", message)
 
 
 def _verify_touragent(kd: KamkorDictionaries, data: Dict[str, Any]) -> Dict[str, Any]:
