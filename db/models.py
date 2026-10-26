@@ -1,6 +1,7 @@
 """
 Таблицы:
-  users, tours, pilgrims, tour_offers, dispatch_jobs, system_settings
+  users, tours, pilgrims, tour_offers, dispatch_jobs, system_settings,
+  ref_airlines, ref_countries, ref_hotels, ref_routes, ref_touragents, admin_audit_log
 """
 from datetime import datetime
 import enum
@@ -225,3 +226,91 @@ class SystemSettings(Base):
 
     def __repr__(self):
         return f"<SystemSettings {self.key}>"
+
+
+# ── 7. справочники (раздел «Настройки») ──────────────────
+# Удаление мягкое (is_active=False): старые туры ссылаются на значения
+# по тексту, поэтому запись должна оставаться восстановимой.
+
+class RefAirline(Base):
+    __tablename__ = "ref_airlines"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    code = Column(String(10), unique=True, nullable=False)            # q_airlines: "KC"
+    name = Column(String(255), nullable=False, default="")            # "Air Astana"
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    kamkor_verified_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class RefCountry(Base):
+    __tablename__ = "ref_countries"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    name_ru = Column(String(255), unique=True, nullable=False)        # q_country, как на Камкоре
+    name_en = Column(String(255), nullable=False, default="")         # q_countryen
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    kamkor_verified_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class RefHotel(Base):
+    __tablename__ = "ref_hotels"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    name = Column(String(255), unique=True, nullable=False)           # q_hotel
+    city = Column(String(100), nullable=False, default="")            # Makkah / Madinah
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    kamkor_verified_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class RefRoute(Base):
+    __tablename__ = "ref_routes"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    code = Column(String(50), unique=True, nullable=False)            # "ALA-DOH-JED"
+    departure_city = Column(String(100), nullable=False, default="")  # "Almaty"
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    kamkor_verified_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class RefTouragent(Base):
+    """Турагент в заявке (q_touragent / q_touragent_bin). Не аккаунт входа."""
+    __tablename__ = "ref_touragents"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    name = Column(String(255), unique=True, nullable=False)
+    bin = Column(String(12), unique=True, nullable=False)
+    is_default = Column(Boolean, nullable=False, default=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    kamkor_verified_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_log"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    entity = Column(String(50), nullable=False, index=True)           # "airlines"
+    entity_id = Column(String(36), nullable=False)
+    action = Column(String(20), nullable=False)                       # create/update/delete/restore
+    before = Column(JSON, nullable=True)
+    after = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

@@ -4,6 +4,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { CreateTourCode } from "./pages/CreateTourCode";
 import { TourPackages } from "./pages/TourPackages";
 import { Pilgrims } from "./pages/Pilgrims";
+import { Settings } from "./pages/Settings";
 
 export const router = createBrowserRouter([
   {
@@ -14,6 +15,7 @@ export const router = createBrowserRouter([
       { path: "create", Component: CreateTourCode },
       { path: "packages", Component: TourPackages },
       { path: "pilgrims", Component: Pilgrims },
+      { path: "settings", Component: Settings },
     ],
   },
 ]);

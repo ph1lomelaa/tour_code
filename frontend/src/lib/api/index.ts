@@ -5,3 +5,4 @@ export * from './dispatch';
 export * from './pilgrims';
 export * from './tourPackages';
 export * from './dashboard';
+export * from './settings';

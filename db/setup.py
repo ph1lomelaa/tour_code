@@ -36,6 +36,10 @@ def init_db():
     """Создаёт все таблицы если их нет. Вызывать при старте приложения."""
     Base.metadata.create_all(bind=engine)
     _apply_lightweight_migrations()
+    from .seed_reference import seed_reference_data
+
+    with SessionLocal() as db:
+        seed_reference_data(db)
     logger.info("База данных инициализирована: %s", DATABASE_URL)
 
 

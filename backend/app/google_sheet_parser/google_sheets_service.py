@@ -8,6 +8,7 @@ from datetime import datetime
 import re
 
 from app.core.config import settings
+from app.services.reference_data import route_codes
 
 logger = logging.getLogger(__name__)
 
@@ -213,14 +214,8 @@ class GoogleSheetsService:
 
     def _extract_route(self, text: str) -> Optional[str]:
         """Извлекает поддерживаемый маршрут из названия листа."""
-        routes = [
-            "ALA-DOH-JED", "JED-DOH-ALA",
-            "ALA-JED", "ALA-MED", "NQZ-JED", "NQZ-MED", "NQZ-ALA",
-            "SCO-MED", "SCO-JED", "CIT-MED", "CIT-JED", "DXB-MED", "DXB-JED",
-        ]
-
         text_upper = text.upper()
-        for route in routes:
+        for route in route_codes():
             if route in text_upper:
                 return route
 

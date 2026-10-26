@@ -1,8 +1,9 @@
 import { Outlet, Link, useLocation } from "react-router";
-import { Package, Users, Plus, Menu, Home } from "lucide-react";
+import { Package, Users, Plus, Menu, Home, Settings } from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "./ui/sheet";
 import { Button } from "./ui/button";
+import { Toaster } from "./ui/sonner";
 
 export function Layout() {
   const location = useLocation();
@@ -23,6 +24,11 @@ export function Layout() {
       path: "/pilgrims",
       label: "Паломники",
       icon: Users,
+    },
+    {
+      path: "/settings",
+      label: "Настройки",
+      icon: Settings,
     },
   ];
 
@@ -144,6 +150,7 @@ export function Layout() {
         <div className="md:hidden h-16" /> {/* Spacer for mobile header */}
         <Outlet />
       </main>
+      <Toaster position="top-right" />
     </div>
   );
 }

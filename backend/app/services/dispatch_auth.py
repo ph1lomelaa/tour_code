@@ -44,6 +44,31 @@ def _is_login_form(html: str) -> bool:
     return 'name="agentpass"' in (html or "") or "name='agentpass'" in (html or "")
 
 
+def auth_headers() -> Dict[str, str]:
+    from app.core.config import settings
+
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": settings.DISPATCH_USER_AGENT,
+    }
+    if settings.DISPATCH_ORIGIN:
+        headers["Origin"] = settings.DISPATCH_ORIGIN
+    if settings.DISPATCH_AUTH_REFERER:
+        headers["Referer"] = settings.DISPATCH_AUTH_REFERER
+    return headers
+
+
+def auth_payload(login: str, password: str) -> Dict[str, str]:
+    from app.core.config import settings
+
+    return {
+        "agentlogin": login,
+        "agentpass": password,
+        "jump2": settings.DISPATCH_AUTH_JUMP2,
+        "submit": settings.DISPATCH_AUTH_SUBMIT,
+    }
+
+
 def authenticate(client: httpx.Client, auth_url: str, auth_payload: Dict[str, str], headers: Dict[str, str]) -> str:
     """Логинится и возвращает значение cookie tsagent."""
     response = client.post(auth_url, data=auth_payload, headers=headers, cookies={"lg": "ru"})
@@ -93,21 +118,8 @@ if __name__ == "__main__":
     else:
         login, password = settings.DISPATCH_AGENT_LOGIN, settings.DISPATCH_AGENT_PASS
 
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": settings.DISPATCH_USER_AGENT,
-    }
-    if settings.DISPATCH_ORIGIN:
-        headers["Origin"] = settings.DISPATCH_ORIGIN
-    if settings.DISPATCH_AUTH_REFERER:
-        headers["Referer"] = settings.DISPATCH_AUTH_REFERER
-
-    payload = {
-        "agentlogin": login,
-        "agentpass": password,
-        "jump2": settings.DISPATCH_AUTH_JUMP2,
-        "submit": settings.DISPATCH_AUTH_SUBMIT,
-    }
+    headers = auth_headers()
+    payload = auth_payload(login, password)
     with httpx.Client(timeout=30, follow_redirects=True) as client:
         try:
             authenticate(client, settings.DISPATCH_AUTH_URL, payload, headers)

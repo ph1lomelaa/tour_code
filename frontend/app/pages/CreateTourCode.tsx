@@ -24,50 +24,10 @@ import { uploadManifest, Pilgrim } from "../../src/lib/api/manifest";
 import { enqueueDispatchJob, getDispatchJob } from "../../src/lib/api/dispatch";
 import { downloadTourPackageExcel, getTourPackage } from "../../src/lib/api/tourPackages";
 import { useSearchParams } from "react-router";
+import { useReferenceData, withCurrent } from "../hooks/useReferenceData";
 
-// Список отелей
-const hotels = [
-  "Hilton Makkah Convention Hotel",
-  "Swissotel Makkah",
-  "Pullman ZamZam Makkah",
-  "Fairmont Makkah Clock Royal Tower",
-  "Conrad Makkah",
-  "Anjum Hotel Makkah",
-  "Elaf Kinda Hotel",
-  "Millennium Al Aqeeq Hotel",
-  "Raffles Makkah",
-  "Jumeirah Jabal Omar Makkah",
-  "Dar Al Tawhid Makkah",
-  "Dar Al Taqwa Madinah 5*",
-  "Courtyard by Marriott",
-];
 
 const KAMKOR_PORTAL_URL = "https://report.fondkamkor.kz";
-
-// Значения совпадают со справочником countries партнёрской системы.
-const COUNTRY_OPTIONS = [
-  "Саудовская Аравия",
-  "Казахстан",
-  "Катар",
-  "Объединенные Арабские Эмираты",
-  "Турция",
-];
-
-const ROUTE_OPTIONS = [
-  "ALA-DOH-JED",
-  "JED-DOH-ALA",
-  "ALA-JED",
-  "ALA-MED",
-  "NQZ-JED",
-  "NQZ-MED",
-  "NQZ-ALA",
-  "SCO-MED",
-  "SCO-JED",
-  "CIT-MED",
-  "CIT-JED",
-  "DXB-MED",
-  "DXB-JED",
-];
 
 const normalizeCountryOption = (country?: string) =>
   country === "ОАЭ" ? "Объединенные Арабские Эмираты" : (country || "Саудовская Аравия");
@@ -384,17 +344,6 @@ const findPassportDrivenManifestMatchIndex = (
   return candidates[0].index;
 };
 
-// Коды авиакомпаний, которые принимает партнёрская система.
-// Добавить новую = дописать строку сюда.
-const AIRLINE_OPTIONS: { code: string; label: string }[] = [
-  { code: "KC", label: "KC — Air Astana" },
-  { code: "DV", label: "DV — SCAT" },
-  { code: "FZ", label: "FZ — Flydubai" },
-  { code: "EK", label: "EK — Emirates" },
-  { code: "QR", label: "QR — Qatar Airways" },
-  { code: "THY", label: "THY — Turkish Airlines" },
-];
-
 const DISPATCH_STATUS_META: Record<DispatchStatus, { label: string; tone: string }> = {
   draft: { label: "Черновик", tone: "text-stone-600" },
   queued: { label: "В очереди", tone: "text-amber-700" },
@@ -426,6 +375,8 @@ export function CreateTourCode() {
   // Под каким аккаунтом логиниться в партнёрскую систему: "hikmet" или "almarwa".
   // Креды лежат в .env бэка, фронт шлёт только ключ.
   const [selectedAgentKey, setSelectedAgentKey] = useState<"hikmet" | "almarwa">("hikmet");
+  const { options: reference, loaded: referenceLoaded } = useReferenceData();
+  const touragentTouchedRef = useRef(false);
 
   // Tour search
   const [tourOptions, setTourOptions] = useState<TourOption[]>([]);
@@ -535,30 +486,25 @@ export function CreateTourCode() {
     }
   };
 
-  const applyHikmetTravelPreset = () => {
-    setDispatchTouragentName("Хикмет Travel");
-    setDispatchTouragentBin("080340019818");
-  };
-
-  const applyHickmetPremiumPreset = () => {
-    setDispatchTouragentName("HICKMET PREMIUM");
-    setDispatchTouragentBin("240340000277");
-  };
-
-  const applyNiyetPreset = () => {
-    setDispatchTouragentName("NIYET");
-    setDispatchTouragentBin("230940022228");
-  };
-
-  const applyAlMarwaPreset = () => {
-    setDispatchTouragentName("AL-MARWA");
-    setDispatchTouragentBin("030340005591");
+  const applyTouragentPreset = (name: string, bin: string) => {
+    touragentTouchedRef.current = true;
+    setDispatchTouragentName(name);
+    setDispatchTouragentBin(bin);
   };
 
   const clearDispatchOverrides = () => {
-    setDispatchTouragentName("");
-    setDispatchTouragentBin("");
+    applyTouragentPreset("", "");
   };
+
+  // Турагент по умолчанию из «Настроек» — пока пользователь сам ничего не выбрал.
+  useEffect(() => {
+    if (!referenceLoaded || touragentTouchedRef.current) return;
+    const preset = reference.touragents.find((t) => t.is_default);
+    if (preset) {
+      setDispatchTouragentName(preset.name);
+      setDispatchTouragentBin(preset.bin);
+    }
+  }, [referenceLoaded, reference.touragents]);
 
   const openMatchedEditor = (index: number) => {
     const row = allMatched[index];
@@ -744,6 +690,7 @@ export function CreateTourCode() {
         setSelectedFlight(preselectedTour.route || "");
         setSelectedCountry(normalizeCountryOption(detail.country));
         setSelectedHotel(detail.hotel || "");
+        touragentTouchedRef.current = true;
         setDispatchTouragentName(detail.dispatch_overrides?.q_touragent || "");
         setDispatchTouragentBin(detail.dispatch_overrides?.q_touragent_bin || "");
 
@@ -960,15 +907,6 @@ export function CreateTourCode() {
     resetDispatchTracking();
   };
 
-  const DEPARTURE_CITY: Record<string, string> = {
-    "ALA-DOH-JED": "Almaty", "JED-DOH-ALA": "Jeddah",
-    "ALA-JED": "Almaty", "ALA-MED": "Almaty",
-    "NQZ-JED": "Nur-Sultan", "NQZ-MED": "Nur-Sultan", "NQZ-ALA": "Nur-Sultan",
-    "SCO-MED": "Shymkent", "SCO-JED": "Shymkent", "CIT-MED": "Shymkent",
-    "CIT-JED": "Shymkent",
-    "DXB-MED": "Dubai", "DXB-JED": "Dubai",
-  };
-
   const setResidentStatus = (index: number, resident_status: "резидент" | "нерезидент") => {
     setAllMatched((prev) => prev.map((row, rowIndex) => (
       rowIndex === index ? { ...row, resident_status } : row
@@ -1007,7 +945,7 @@ export function CreateTourCode() {
       date_end,
       days: days > 0 ? days : 1,
       route,
-      departure_city: DEPARTURE_CITY[route] || "",
+      departure_city: reference.routes.find((r) => r.code === route)?.departure_city || "",
     };
 
     handleTourSelect(tour);
@@ -1478,9 +1416,12 @@ export function CreateTourCode() {
     );
   };
 
-  const hotelOptions = selectedHotel && !hotels.includes(selectedHotel)
-    ? [selectedHotel, ...hotels]
-    : hotels;
+  const hotelOptions = withCurrent(reference.hotels, selectedHotel);
+  const countryOptions = withCurrent(reference.countries, selectedCountry);
+  const airlineOptions = reference.airlines.some((a) => a.code === selectedAirline) || !selectedAirline
+    ? reference.airlines
+    : [{ code: selectedAirline, label: selectedAirline }, ...reference.airlines];
+  const routeOptions = withCurrent(reference.routes.map((r) => r.code), manualTourForm.route);
   const dispatchStatusView = dispatchJobStatus ? DISPATCH_STATUS_META[dispatchJobStatus] : null;
   const dispatchProgressValue = Math.max(0, Math.min(100, dispatchProgressPercent || 0));
   const dispatchHasProgress = Boolean(dispatchJobId);
@@ -1636,7 +1577,7 @@ export function CreateTourCode() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {COUNTRY_OPTIONS.map((country) => (
+                    {countryOptions.map((country) => (
                       <SelectItem key={country} value={country}>{country}</SelectItem>
                     ))}
                   </SelectContent>
@@ -1652,7 +1593,7 @@ export function CreateTourCode() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {AIRLINE_OPTIONS.map((airline) => (
+                    {airlineOptions.map((airline) => (
                       <SelectItem key={airline.code} value={airline.code}>
                         {airline.label}
                       </SelectItem>
@@ -1722,42 +1663,18 @@ export function CreateTourCode() {
             <div className="border border-white/60 rounded-lg p-4 bg-white/30">
               <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="border-[#E5DDD0] hover:bg-white"
-                    onClick={applyHikmetTravelPreset}
-                  >
-                    Хикмет Travel
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="border-[#E5DDD0] hover:bg-white"
-                    onClick={applyHickmetPremiumPreset}
-                  >
-                    HICKMET PREMIUM
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="border-[#E5DDD0] hover:bg-white"
-                    onClick={applyNiyetPreset}
-                  >
-                    NIYET
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="border-[#E5DDD0] hover:bg-white"
-                    onClick={applyAlMarwaPreset}
-                  >
-                    AL-MARWA
-                  </Button>
+                  {reference.touragents.map((preset) => (
+                    <Button
+                      key={preset.bin}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="border-[#E5DDD0] hover:bg-white"
+                      onClick={() => applyTouragentPreset(preset.name, preset.bin)}
+                    >
+                      {preset.name}
+                    </Button>
+                  ))}
                   <Button
                     type="button"
                     size="sm"
@@ -1774,7 +1691,10 @@ export function CreateTourCode() {
                   <label className="block mb-1 text-sm text-[#2B2318]">Тур-агент</label>
                   <Input
                     value={dispatchTouragentName}
-                    onChange={(e) => setDispatchTouragentName(e.target.value)}
+                    onChange={(e) => {
+                      touragentTouchedRef.current = true;
+                      setDispatchTouragentName(e.target.value);
+                    }}
                     className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
                   />
                 </div>
@@ -1782,7 +1702,10 @@ export function CreateTourCode() {
                   <label className="block mb-1 text-sm text-[#2B2318]">БИН тур-агента</label>
                   <Input
                     value={dispatchTouragentBin}
-                    onChange={(e) => setDispatchTouragentBin(e.target.value)}
+                    onChange={(e) => {
+                      touragentTouchedRef.current = true;
+                      setDispatchTouragentBin(e.target.value);
+                    }}
                     className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
                   />
                 </div>
@@ -2294,7 +2217,7 @@ export function CreateTourCode() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ROUTE_OPTIONS.map((r) => (
+                  {routeOptions.map((r) => (
                     <SelectItem key={r} value={r}>{r}</SelectItem>
                   ))}
                 </SelectContent>
@@ -2311,7 +2234,7 @@ export function CreateTourCode() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {COUNTRY_OPTIONS.map((country) => (
+                  {withCurrent(reference.countries, manualTourForm.country).map((country) => (
                     <SelectItem key={country} value={country}>{country}</SelectItem>
                   ))}
                 </SelectContent>
@@ -2328,7 +2251,7 @@ export function CreateTourCode() {
                   <SelectValue placeholder="Выберите отель" />
                 </SelectTrigger>
                 <SelectContent>
-                  {hotels.map((hotel) => (
+                  {reference.hotels.map((hotel) => (
                     <SelectItem key={hotel} value={hotel}>{hotel}</SelectItem>
                   ))}
                 </SelectContent>
@@ -2345,7 +2268,7 @@ export function CreateTourCode() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {AIRLINE_OPTIONS.map((airline) => (
+                  {reference.airlines.map((airline) => (
                     <SelectItem key={airline.code} value={airline.code}>
                       {airline.label}
                     </SelectItem>

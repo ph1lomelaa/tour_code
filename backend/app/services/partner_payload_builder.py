@@ -3,19 +3,10 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from app.core.config import settings
+from app.services.dispatch_auth import DispatchAuthError
 from app.services.document_rules import normalize_document
+from app.services.reference_data import country_en
 from app.services.route_utils import route_endpoints
-
-
-COUNTRY_EN_MAP = {
-    "Казахстан": "Kazakhstan",
-    "Катар": "Qatar",
-    "Объединенные Арабские Эмираты": "United Arab Emirates",
-    # Поддержка туров, сохранённых до перехода на полное название из справочника.
-    "ОАЭ": "United Arab Emirates",
-    "Саудовская Аравия": "Saudi Arabia",
-    "Турция": "Turkey",
-}
 
 
 def _drop_empty_values(values: Dict[str, Any]) -> Dict[str, Any]:
@@ -66,8 +57,12 @@ def _resolve_agent_credentials(snapshot: Dict[str, Any]) -> Tuple[str, str]:
         password = (settings.DISPATCH_AGENT_PASS_ALMARWA or "").strip()
         if login and password:
             return login, password
-        # Если креды AL-MARWA не настроены в .env — падаем на дефолт, чтобы не
-        # отправлять запрос с пустыми кредами.
+        # Раньше здесь был тихий переход на аккаунт Хикмета — из-за этого
+        # ошибка входа выглядела одинаково для всех турагентов.
+        raise DispatchAuthError(
+            "Логин/пароль AL-MARWA не заданы в .env (DISPATCH_AGENT_LOGIN_ALMARWA / DISPATCH_AGENT_PASS_ALMARWA)",
+            retryable=False,
+        )
 
     return settings.DISPATCH_AGENT_LOGIN, settings.DISPATCH_AGENT_PASS
 
@@ -81,13 +76,6 @@ def _resolve_company(snapshot: Dict[str, Any]) -> Tuple[str, str, str]:
     firmid = str(overrides.get("firmid") or "").strip() or str(settings.DISPATCH_FIRM_ID or "").strip()
     firmname = str(overrides.get("firmname") or "").strip() or str(settings.DISPATCH_FIRM_NAME or "").strip()
     return filialid, firmid, firmname
-
-
-def _country_en(value: str) -> str:
-    text = (value or "").strip()
-    if not text:
-        return ""
-    return COUNTRY_EN_MAP.get(text, text)
 
 
 def _build_base_input(snapshot: Dict[str, Any]) -> Dict[str, Any]:
@@ -120,7 +108,7 @@ def _build_base_input(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         "q_touragent": q_touragent,
         "q_touragent_bin": q_touragent_bin,
         "q_country": country,
-        "q_countryen": _country_en(country),
+        "q_countryen": country_en(country),
         "q_airlines": airlines,
         "q_airport_start": airport_start,
         "q_airport": airport_end,

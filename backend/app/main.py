@@ -5,7 +5,7 @@ import logging
 
 from app.core.config import settings
 from app.core.database import check_db_connection, init_db
-from app.api.v1 import tours, manifest, dispatch, pilgrims, tour_packages, dashboard
+from app.api.v1 import tours, manifest, dispatch, pilgrims, tour_packages, dashboard, settings as settings_api
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -53,6 +53,7 @@ app.include_router(dispatch.router, prefix="/api/v1")
 app.include_router(pilgrims.router, prefix="/api/v1")
 app.include_router(tour_packages.router, prefix="/api/v1")
 app.include_router(dashboard.router, prefix="/api/v1")
+app.include_router(settings_api.router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

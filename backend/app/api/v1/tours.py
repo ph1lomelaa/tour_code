@@ -6,6 +6,7 @@ import logging
 
 from app.google_sheet_parser.google_sheets_service import google_sheets_service
 from app.google_sheet_parser.sheet_pilgrim_parser import sheet_pilgrim_parser
+from app.services.reference_data import departure_city
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/tours", tags=["tours"])
@@ -141,22 +142,7 @@ async def search_tours_by_date(
 
 
 def _get_departure_city(route: str) -> str:
-    route_map = {
-        "ALA-DOH-JED": "Almaty",
-        "JED-DOH-ALA": "Jeddah",
-        "ALA-JED": "Almaty",
-        "ALA-MED": "Almaty",
-        "NQZ-JED": "Nur-Sultan",
-        "NQZ-MED": "Nur-Sultan",
-        "NQZ-ALA": "Nur-Sultan",
-        "SCO-MED": "Shymkent",
-        "SCO-JED": "Shymkent",
-        "CIT-MED": "Shymkent",
-        "CIT-JED": "Shymkent",
-        "DXB-MED": "Dubai",
-        "DXB-JED": "Dubai",
-    }
-    return route_map.get(route, "Не указан")
+    return departure_city(route)
 
 
 @router.get("/test")
