@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 import logging
 import re
+import time
 from urllib.parse import urljoin, urlsplit
 
 import httpx
@@ -405,7 +406,13 @@ def _is_guest_page(text: str) -> bool:
     if not raw:
         return False
     # Check for actual guest status, not logout links
-    return "logged as:guest" in raw or "@ guest" in raw
+    return (
+        "logged as:guest" in raw
+        or "@ guest" in raw
+        or "вы гость" in raw
+        or 'name="agentpass"' in raw
+        or "name='agentpass'" in raw
+    )
 
 
 @celery_app.task(bind=True, name="dispatch.process_job", max_retries=5)
@@ -486,6 +493,8 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
             db.commit()
             save_headers = _build_save_headers()
             save_cookies = {"lg": "ru", "tsagent": tsagent}
+            # Сколько раз за задачу можно перелогиниться, если Kamkor сбросил сессию.
+            relogin_budget = 3
 
             for item in json_items:
                 idx = int(item.get("index") or 0)
@@ -496,6 +505,28 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                     logger.info("Dispatch save request initialized")
 
                 response = client.post(save_url, data=payload, headers=save_headers, cookies=save_cookies)
+
+                # Kamkor вернул страницу гостя — заявка НЕ создана, сессия сброшена.
+                # Логинимся заново и повторяем эту же заявку (дубля не будет).
+                while (
+                    relogin_budget > 0
+                    and response.status_code < 400
+                    and not _extract_business_error(response)
+                    and _is_guest_page(response.text or "")
+                ):
+                    relogin_budget -= 1
+                    logger.warning(
+                        "Dispatch got guest page at index=%s, re-authenticating (budget left=%s)",
+                        idx,
+                        relogin_budget,
+                    )
+                    client.cookies.clear()
+                    time.sleep(2)
+                    tsagent = authenticate(client, auth_url, auth_payload, _build_auth_headers())
+                    save_cookies = {"lg": "ru", "tsagent": tsagent}
+                    response = client.post(
+                        save_url, data=payload, headers=save_headers, cookies=save_cookies
+                    )
 
                 if response.status_code >= 400:
                     raise RuntimeError(f"HTTP {response.status_code}: {response.text}")
@@ -508,7 +539,12 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                     is_guest = _is_guest_page(response.text or "")
                     logger.info("Dispatch response received, guest page=%s", is_guest)
 
-                if not business_error and _is_guest_page(response.text or ""):
+                guest_session = not business_error and _is_guest_page(response.text or "")
+                if guest_session:
+                    if not responses:
+                        # Даже после перелогина сессия не принята с первой же заявки —
+                        # ничего не создано, прерываем задачу и даём ретраю попробовать позже.
+                        raise DispatchAuthError("Unauthorized session (guest)", retryable=True)
                     business_error = "Unauthorized session (guest)"
                 item_error_message = business_error
                 created_query_id = ""
@@ -607,6 +643,14 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 }
                 db.commit()
 
+                if guest_session:
+                    # Сессия слетела посреди отправки — остальные заявки тоже уйдут
+                    # на страницу входа, не шлём их впустую.
+                    logger.warning(
+                        "Dispatch session became guest at index=%s, stopping job %s", idx, job_id
+                    )
+                    break
+
         # Подсчёт исходов:
         #   completed  — тур-код получен и сохранён в БД паломнику
         #   registered — заявка ушла к партнёру (HTTP 200, без business_error),
@@ -655,6 +699,11 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                 if failed_items:
                     parts.append(
                         f"{failed_items} требуют проверки данных"
+                    )
+                unsent_items = total_items - len(responses)
+                if unsent_items > 0:
+                    parts.append(
+                        f"{unsent_items} не отправлены (внешняя система сбросила сессию) — отправьте повторно"
                     )
                 job.error_message = "Отправлено. " + ", ".join(parts) + "."
 
