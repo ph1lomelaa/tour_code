@@ -15,6 +15,7 @@ bcrypt==4.2.0
 redis==5.2.0
 hiredis==3.0.0
 celery==5.4.0
+kombu==5.4.2
 
 # Excel & Google Sheets parsing
 openpyxl==3.1.5                # Excel files
