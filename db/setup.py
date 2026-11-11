@@ -45,7 +45,15 @@ def init_db():
 
 def _apply_lightweight_migrations() -> None:
     inspector = inspect(engine)
-    if "pilgrims" not in inspector.get_table_names():
+    tables = inspector.get_table_names()
+    if "users" in tables:
+        _migrate_users(inspector)
+    if "admin_audit_log" in tables:
+        audit_columns = {c["name"] for c in inspector.get_columns("admin_audit_log")}
+        if "user_email" not in audit_columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE admin_audit_log ADD COLUMN user_email VARCHAR(255)"))
+    if "pilgrims" not in tables:
         return
 
     columns = {column["name"] for column in inspector.get_columns("pilgrims")}
@@ -72,6 +80,32 @@ def _apply_lightweight_migrations() -> None:
                 """
             )
         )
+
+
+def _migrate_users(inspector) -> None:
+    """Приводит старую таблицу users к виду для входа по приглашениям."""
+    columns = {c["name"]: c for c in inspector.get_columns("users")}
+    with engine.begin() as conn:
+        if "invite_token_hash" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN invite_token_hash VARCHAR(64)"))
+        if "invite_expires_at" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN invite_expires_at TIMESTAMP"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_users_invite_token_hash ON users (invite_token_hash)"))
+        if _is_sqlite:
+            return
+        # Postgres: роль была native enum (user_role / userrole) — переводим в строку.
+        role_type = conn.execute(text(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_name = 'users' AND column_name = 'role' AND table_schema = current_schema()"
+        )).scalar()
+        if role_type == "USER-DEFINED":
+            conn.execute(text("ALTER TABLE users ALTER COLUMN role DROP DEFAULT"))
+            conn.execute(text("ALTER TABLE users ALTER COLUMN role TYPE VARCHAR(20) USING LOWER(role::text)"))
+        conn.execute(text("ALTER TABLE users ALTER COLUMN role SET DEFAULT 'viewer'"))
+        conn.execute(text("UPDATE users SET role = 'editor' WHERE role = 'manager'"))
+        conn.execute(text("UPDATE users SET role = 'viewer' WHERE role = 'operator'"))
+        conn.execute(text("ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL"))
+        conn.execute(text("ALTER TABLE users ALTER COLUMN full_name DROP NOT NULL"))
 
 
 def _deduplicate_pilgrims_by_document(conn) -> None:

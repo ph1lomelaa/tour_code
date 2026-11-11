@@ -56,6 +56,7 @@ export interface AuditItem {
   before: Partial<ReferenceItem> | null;
   after: Partial<ReferenceItem> | null;
   created_at: string;
+  user_email?: string | null;
 }
 
 export const errorDetail = (error: unknown, fallback = 'Ошибка запроса'): string => {

@@ -1,44 +1,73 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* ── Фирменная палитра Hickmet Premium (тёплые коричневые) ─────────────────────────────
+     Меняя значения здесь, меняем цвета во всём приложении. */
+  --brand-ink: #231912;          /* тёмный: сайдбар, заголовки */
+  --brand-ink-2: #31261d;        /* второй тон сайдбара */
+  --brand-line-dark: #463a2f;    /* рамки/hover на тёмном */
+  --brand-sand: #e3d7c9;         /* текст на тёмном */
+  --brand-text: #5b4d41;         /* основной текст */
+  --brand-muted: #7a6a5c;        /* приглушённый текст */
+  --brand-subtle: #a69786;       /* подсказки, плейсхолдеры */
+  --brand-line: #e2d6c8;         /* рамки на светлом */
+  --brand-line-strong: #cdbbaa;
+  --brand-cream: #f6f0e8;        /* фон страницы */
+  --brand-cream-2: #ede3d7;      /* вторичный фон */
+  --brand-card: #fffdfa;         /* карточки */
+  --brand-accent: #4b3c30;       /* тёмно-коричневый: кнопки */
+  --brand-accent-hover: #2b2018;
+  --brand-accent-soft: #ede3d7;
+  --brand-accent-200: #cdbbaa;
+  --brand-gold: #c5a052;         /* мелкие золотые акценты */
+  --brand-gold-light: #d8b865;
+  /* Ошибки и удаление — кофейный вместо красного */
+  --brand-alert: #6b4226;
+  --brand-alert-strong: #4e2f1a;
+  --brand-alert-soft: #f3e9df;
+  --brand-alert-line: #d9c2ac;
+
+  --app-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --app-font-serif: "Playfair Display", Georgia, "Times New Roman", serif;
+
   --font-size: 16px;
-  --background: #ffffff;
-  --foreground: oklch(0.145 0 0);
+  --background: var(--brand-cream);
+  --foreground: var(--brand-ink);
   --card: #ffffff;
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #030213;
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.95 0.0058 264.53);
-  --secondary-foreground: #030213;
-  --muted: #ececf0;
-  --muted-foreground: #717182;
-  --accent: #e9ebef;
-  --accent-foreground: #030213;
-  --destructive: #d4183d;
+  --card-foreground: var(--brand-ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--brand-ink);
+  --primary: var(--brand-accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--brand-cream-2);
+  --secondary-foreground: var(--brand-ink);
+  --muted: var(--brand-cream-2);
+  --muted-foreground: var(--brand-muted);
+  --accent: var(--brand-cream-2);
+  --accent-foreground: var(--brand-ink);
+  --destructive: var(--brand-alert);
   --destructive-foreground: #ffffff;
-  --border: rgba(0, 0, 0, 0.1);
+  --border: var(--brand-line);
   --input: transparent;
-  --input-background: #f3f3f5;
-  --switch-background: #cbced4;
+  --input-background: var(--brand-card);
+  --switch-background: var(--brand-line-strong);
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --ring: var(--brand-accent);
+  --chart-1: #4b3c30;
+  --chart-2: #c9a24b;
+  --chart-3: #1f632f;
+  --chart-4: #5e5044;
+  --chart-5: #a88952;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #030213;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: var(--brand-ink);
+  --sidebar-foreground: var(--brand-sand);
+  --sidebar-primary: var(--brand-accent);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--brand-line-dark);
+  --sidebar-accent-foreground: var(--brand-sand);
+  --sidebar-border: var(--brand-line-dark);
+  --sidebar-ring: var(--brand-accent);
 }
 
 .dark {
@@ -79,6 +108,30 @@
 }
 
 @theme inline {
+  --font-sans: var(--app-font-sans);
+  --font-serif: var(--app-font-serif);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-ink-2: var(--brand-ink-2);
+  --color-brand-line-dark: var(--brand-line-dark);
+  --color-brand-sand: var(--brand-sand);
+  --color-brand-text: var(--brand-text);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-line: var(--brand-line);
+  --color-brand-line-strong: var(--brand-line-strong);
+  --color-brand-cream: var(--brand-cream);
+  --color-brand-cream-2: var(--brand-cream-2);
+  --color-brand-card: var(--brand-card);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-hover: var(--brand-accent-hover);
+  --color-brand-accent-soft: var(--brand-accent-soft);
+  --color-brand-accent-200: var(--brand-accent-200);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-gold-light: var(--brand-gold-light);
+  --color-brand-alert: var(--brand-alert);
+  --color-brand-alert-strong: var(--brand-alert-strong);
+  --color-brand-alert-soft: var(--brand-alert-soft);
+  --color-brand-alert-line: var(--brand-alert-line);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -126,6 +179,16 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--app-font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Заголовки — Playfair Display */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--app-font-serif);
+    letter-spacing: -0.01em;
   }
 
   /**

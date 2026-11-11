@@ -2,6 +2,7 @@
  * Axios client для API запросов
  */
 import axios from 'axios';
+import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -13,7 +14,7 @@ export const api = axios.create({
   },
 });
 
-// Request interceptor (для JWT токенов в будущем)
+// Request interceptor: JWT из localStorage
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -27,14 +28,22 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor (для обработки ошибок)
+// Response interceptor: 401 — на страницу входа, 403 — нет прав.
+const PUBLIC_PATHS = ['/login', '/invite/'];
+const isPublicPage = () => PUBLIC_PATHS.some((p) => window.location.pathname.startsWith(p));
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Unauthorized - перенаправить на login
+    const status = error.response?.status;
+    const url: string = error.config?.url || '';
+    if (status === 401 && !url.includes('/api/v1/auth/') && !isPublicPage()) {
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/login?next=${next}`;
+    } else if (status === 403) {
+      const detail = error.response?.data?.detail;
+      toast.error(typeof detail === 'string' ? detail : 'Нет прав на это действие');
     }
     return Promise.reject(error);
   }

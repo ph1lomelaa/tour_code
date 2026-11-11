@@ -1,11 +1,14 @@
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from app.core.config import settings
 from app.core.database import check_db_connection, init_db
+from app.api.deps import require_access
 from app.api.v1 import tours, manifest, dispatch, pilgrims, tour_packages, dashboard, settings as settings_api
+from app.api.v1 import auth, users
+from app.services.bootstrap_admin import ensure_admin
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -40,6 +43,11 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Ошибка инициализации БД: {e}")
 
+    try:
+        ensure_admin()
+    except Exception as e:
+        logger.error(f"Не удалось создать администратора: {e}")
+
     logger.info("✅ Приложение запущено")
 
 
@@ -47,13 +55,15 @@ async def startup_event():
 async def shutdown_event():
     logger.info("🛑 Остановка приложения")
 
-app.include_router(tours.router, prefix="/api/v1")
-app.include_router(manifest.router, prefix="/api/v1")
-app.include_router(dispatch.router, prefix="/api/v1")
-app.include_router(pilgrims.router, prefix="/api/v1")
-app.include_router(tour_packages.router, prefix="/api/v1")
-app.include_router(dashboard.router, prefix="/api/v1")
-app.include_router(settings_api.router, prefix="/api/v1")
+# Без авторизации: вход и принятие приглашения.
+app.include_router(auth.router, prefix="/api/v1")
+# Только админ (проверка внутри роутера).
+app.include_router(users.router, prefix="/api/v1")
+
+# Всё остальное — только для вошедших; изменения — редактор/админ.
+_protected = [Depends(require_access)]
+for _module in (tours, manifest, dispatch, pilgrims, tour_packages, dashboard, settings_api):
+    app.include_router(_module.router, prefix="/api/v1", dependencies=_protected)
 
 @app.get("/")
 async def root():

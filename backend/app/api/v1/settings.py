@@ -13,11 +13,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.services import kamkor_reference, reference_data
 from db.models import (
     AdminAuditLog, DispatchJob, DispatchJobStatus,
-    RefAirline, RefCountry, RefHotel, RefRoute, RefTouragent,
+    RefAirline, RefCountry, RefHotel, RefRoute, RefTouragent, User,
 )
 
 logger = logging.getLogger(__name__)
@@ -130,15 +131,18 @@ def get_audit_log(limit: int = 100, db: Session = Depends(get_db)):
             {
                 "id": r.id, "entity": r.entity, "entity_id": r.entity_id, "action": r.action,
                 "before": r.before, "after": r.after, "created_at": r.created_at.isoformat(),
+                "user_email": r.user_email,
             }
             for r in rows
         ]
     }
 
 
-def _audit(db: Session, entity: str, row: Any, action: str, before: Optional[Dict[str, Any]]) -> None:
+def _audit(
+    db: Session, entity: str, row: Any, action: str, before: Optional[Dict[str, Any]], user: User,
+) -> None:
     db.add(AdminAuditLog(
-        entity=entity, entity_id=row.id, action=action,
+        entity=entity, entity_id=row.id, action=action, user_email=user.email,
         before=before, after=_serialize(row) if action != "delete" else None,
     ))
 
@@ -249,7 +253,7 @@ def verify_entity(entity: Entity, body: EntityWrite):
 
 
 @router.post("/{entity}")
-def create_entity(entity: Entity, body: EntityWrite, db: Session = Depends(get_db)):
+def create_entity(entity: Entity, body: EntityWrite, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     model = _ENTITIES[entity][0]
     data = _clean(entity, body.data, partial=False)
     _check_duplicates(db, entity, data)
@@ -266,14 +270,14 @@ def create_entity(entity: Entity, body: EntityWrite, db: Session = Depends(get_d
     db.add(row)
     db.flush()
     _apply_default(db, entity, row)
-    _audit(db, entity, row, "create", None)
+    _audit(db, entity, row, "create", None, user)
     _commit(db)
     db.refresh(row)
     return {"item": _serialize(row), "verification": result}
 
 
 @router.patch("/{entity}/{row_id}")
-def update_entity(entity: Entity, row_id: str, body: EntityWrite, db: Session = Depends(get_db)):
+def update_entity(entity: Entity, row_id: str, body: EntityWrite, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     row = _get_row(db, entity, row_id)
     before = _serialize(row)
     data = _clean(entity, body.data, partial=True)
@@ -294,14 +298,14 @@ def update_entity(entity: Entity, row_id: str, body: EntityWrite, db: Session = 
     for key, value in changed.items():
         setattr(row, key, value)
     _apply_default(db, entity, row)
-    _audit(db, entity, row, "update", before)
+    _audit(db, entity, row, "update", before, user)
     _commit(db)
     db.refresh(row)
     return {"item": _serialize(row), "verification": result}
 
 
 @router.delete("/{entity}/{row_id}")
-def delete_entity(entity: Entity, row_id: str, db: Session = Depends(get_db)):
+def delete_entity(entity: Entity, row_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     model = _ENTITIES[entity][0]
     row = _get_row(db, entity, row_id)
     if not row.is_active:
@@ -314,20 +318,20 @@ def delete_entity(entity: Entity, row_id: str, db: Session = Depends(get_db)):
 
     before = _serialize(row)
     row.is_active = False
-    _audit(db, entity, row, "delete", before)
+    _audit(db, entity, row, "delete", before, user)
     _commit(db)
     db.refresh(row)
     return {"item": _serialize(row)}
 
 
 @router.post("/{entity}/{row_id}/restore")
-def restore_entity(entity: Entity, row_id: str, db: Session = Depends(get_db)):
+def restore_entity(entity: Entity, row_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     row = _get_row(db, entity, row_id)
     if row.is_active:
         return {"item": _serialize(row)}
     before = _serialize(row)
     row.is_active = True
-    _audit(db, entity, row, "restore", before)
+    _audit(db, entity, row, "restore", before, user)
     _commit(db)
     db.refresh(row)
     return {"item": _serialize(row)}

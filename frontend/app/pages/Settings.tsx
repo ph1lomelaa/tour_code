@@ -25,6 +25,7 @@ import {
 } from "../../src/lib/api/settings";
 import { retryDispatchJob } from "../../src/lib/api/dispatch";
 import { invalidateReferenceData } from "../hooks/useReferenceData";
+import { useAuth } from "../context/AuthContext";
 
 type FieldKey = "code" | "name" | "name_ru" | "name_en" | "city" | "departure_city" | "bin";
 
@@ -102,16 +103,16 @@ const ACTION_LABELS: Record<AuditItem["action"], string> = {
 const formatDate = (value?: string | null) =>
   value ? new Date(value.endsWith("Z") || value.includes("+") ? value : `${value}Z`).toLocaleString("ru-RU") : "—";
 
-const CARD = "bg-white rounded-2xl p-6 shadow-lg border border-[#E5DDD0]";
-const PRIMARY = "bg-[#B8985F] text-white hover:bg-[#a0834f]";
+const CARD = "bg-white rounded-2xl p-6 shadow-lg border border-brand-line";
+const PRIMARY = "bg-brand-accent text-white hover:bg-brand-accent-hover";
 
 // ── Результат проверки Камкора ──────────────────────────
 
 function VerificationView({ result, onSuggestion }: { result: Verification; onSuggestion: (value: string) => void }) {
   const meta = {
     found: { icon: CheckCircle2, tone: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-    not_found: { icon: XCircle, tone: "text-red-700 bg-red-50 border-red-200" },
-    invalid: { icon: XCircle, tone: "text-red-700 bg-red-50 border-red-200" },
+    not_found: { icon: XCircle, tone: "text-brand-alert bg-brand-alert-soft border-brand-alert-line" },
+    invalid: { icon: XCircle, tone: "text-brand-alert bg-brand-alert-soft border-brand-alert-line" },
     unchecked: { icon: CircleHelp, tone: "text-stone-700 bg-stone-50 border-stone-200" },
   }[result.status];
   const Icon = meta.icon;
@@ -131,7 +132,7 @@ function VerificationView({ result, onSuggestion }: { result: Verification; onSu
                 key={s}
                 type="button"
                 onClick={() => onSuggestion(s.split(" — ")[0])}
-                className="rounded-full border border-current/30 bg-white px-3 py-1 text-xs hover:bg-[#F5F1EA]"
+                className="rounded-full border border-current/30 bg-white px-3 py-1 text-xs hover:bg-brand-cream"
               >
                 {s}
               </button>
@@ -152,6 +153,7 @@ type PendingAction =
   | { kind: "default"; item: ReferenceItem };
 
 function EntityTab({ entity }: { entity: ReferenceEntity }) {
+  const { canEdit } = useAuth();
   const config = ENTITIES[entity];
   const [items, setItems] = useState<ReferenceItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -282,13 +284,15 @@ function EntityTab({ entity }: { entity: ReferenceEntity }) {
   return (
     <div className={CARD}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <label className="flex items-center gap-2 text-sm text-[#6B5435]">
+        <label className="flex items-center gap-2 text-sm text-brand-text">
           <Switch checked={showDeleted} onCheckedChange={setShowDeleted} />
           Показать удалённые
         </label>
-        <Button className={PRIMARY} onClick={() => setEditor({ mode: "create", values: {} })}>
-          <Plus className="w-4 h-4" /> Добавить
-        </Button>
+        {canEdit && (
+          <Button className={PRIMARY} onClick={() => setEditor({ mode: "create", values: {} })}>
+            <Plus className="w-4 h-4" /> Добавить
+          </Button>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -302,29 +306,29 @@ function EntityTab({ entity }: { entity: ReferenceEntity }) {
           </TableHeader>
           <TableBody>
             {loading && (
-              <TableRow><TableCell colSpan={config.fields.length + 2} className="text-center text-[#6B5435]">
+              <TableRow><TableCell colSpan={config.fields.length + 2} className="text-center text-brand-text">
                 <Loader2 className="inline w-4 h-4 animate-spin" />
               </TableCell></TableRow>
             )}
             {!loading && visible.length === 0 && (
-              <TableRow><TableCell colSpan={config.fields.length + 2} className="text-center text-[#6B5435]">
+              <TableRow><TableCell colSpan={config.fields.length + 2} className="text-center text-brand-text">
                 Пусто
               </TableCell></TableRow>
             )}
             {!loading && visible.map((item) => (
               <TableRow key={item.id} className={item.is_active ? "" : "opacity-50"}>
                 {config.fields.map((f, idx) => (
-                  <TableCell key={f.key} className="text-[#2B2318]">
+                  <TableCell key={f.key} className="text-brand-ink">
                     {item[f.key] || "—"}
                     {idx === 0 && item.is_default && (
-                      <span className="ml-2 rounded-full bg-[#F5F1EA] px-2 py-0.5 text-xs text-[#8B6F47]">по умолчанию</span>
+                      <span className="ml-2 rounded-full bg-brand-cream px-2 py-0.5 text-xs text-brand-muted">по умолчанию</span>
                     )}
                     {idx === 0 && !item.is_active && (
-                      <span className="ml-2 text-xs text-red-700">удалено</span>
+                      <span className="ml-2 text-xs text-brand-alert">удалено</span>
                     )}
                   </TableCell>
                 ))}
-                <TableCell className="text-xs text-[#6B5435]">
+                <TableCell className="text-xs text-brand-text">
                   {item.kamkor_verified_at ? (
                     <span className="inline-flex items-center gap-1 text-emerald-700">
                       <CheckCircle2 className="w-3.5 h-3.5" /> проверено
@@ -332,7 +336,7 @@ function EntityTab({ entity }: { entity: ReferenceEntity }) {
                   ) : "—"}
                 </TableCell>
                 <TableCell className="text-right whitespace-nowrap">
-                  {item.is_active ? (
+                  {!canEdit ? null : item.is_active ? (
                     <>
                       {entity === "touragents" && !item.is_default && (
                         <Button variant="ghost" size="icon" title="Сделать по умолчанию"
@@ -348,7 +352,7 @@ function EntityTab({ entity }: { entity: ReferenceEntity }) {
                         })}>
                         <Pencil className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" title="Удалить" className="text-red-700"
+                      <Button variant="ghost" size="icon" title="Удалить" className="text-brand-alert"
                         onClick={() => setPending({ kind: "delete", item, typed: "" })}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -381,15 +385,15 @@ function EntityTab({ entity }: { entity: ReferenceEntity }) {
           >
             {config.fields.map((f, idx) => (
               <div key={f.key}>
-                <label className="mb-1 block text-sm text-[#2B2318]">
-                  {f.label}{f.required && <span className="text-red-700"> *</span>}
+                <label className="mb-1 block text-sm text-brand-ink">
+                  {f.label}{f.required && <span className="text-brand-alert"> *</span>}
                 </label>
                 <Input
                   autoFocus={idx === 0}
                   value={editor?.values[f.key] || ""}
                   placeholder={f.placeholder}
                   onChange={(e) => setEditor((prev) => prev && { ...prev, values: { ...prev.values, [f.key]: e.target.value } })}
-                  className="bg-[#F5F1EA] border-[#E5DDD0] focus:border-[#B8985F]"
+                  className="bg-brand-cream border-brand-line focus:border-brand-accent"
                 />
               </div>
             ))}
@@ -412,10 +416,10 @@ function EntityTab({ entity }: { entity: ReferenceEntity }) {
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm text-[#2B2318]">
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm text-brand-ink">
                   {config.fields.map((f) => (
                     <div key={f.key} className="contents">
-                      <dt className="text-[#6B5435]">{f.label}</dt>
+                      <dt className="text-brand-text">{f.label}</dt>
                       <dd>{editor?.values[f.key] || "—"}</dd>
                     </div>
                   ))}
@@ -430,7 +434,7 @@ function EntityTab({ entity }: { entity: ReferenceEntity }) {
                   />
                 )}
                 {verification?.status === "not_found" && (
-                  <label className="flex items-center gap-2 text-sm text-[#2B2318]">
+                  <label className="flex items-center gap-2 text-sm text-brand-ink">
                     <Checkbox
                       checked={confirm?.sure}
                       onCheckedChange={(checked) => setConfirm((prev) => prev && { ...prev, sure: checked === true })}
@@ -475,7 +479,7 @@ function EntityTab({ entity }: { entity: ReferenceEntity }) {
                     <Input
                       value={pending.typed}
                       onChange={(e) => setPending((prev) => prev && prev.kind === "delete" ? { ...prev, typed: e.target.value } : prev)}
-                      className="bg-[#F5F1EA] border-[#E5DDD0]"
+                      className="bg-brand-cream border-brand-line"
                     />
                   </div>
                 )}
@@ -486,7 +490,7 @@ function EntityTab({ entity }: { entity: ReferenceEntity }) {
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <Button
               disabled={busy || (pending?.kind === "delete" && deleteNeedsTyping && pending.typed.trim() !== pending.item.name)}
-              className={pending?.kind === "delete" ? "bg-red-700 text-white hover:bg-red-800" : PRIMARY}
+              className={pending?.kind === "delete" ? "bg-brand-alert text-white hover:bg-brand-alert-strong" : PRIMARY}
               onClick={runPending}
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : pending?.kind === "delete" ? "Удалить" : "Подтвердить"}
@@ -520,8 +524,8 @@ function KamkorTab() {
       <div className={CARD}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-[#2B2318]">Аккаунты входа</h3>
-            <p className="text-sm text-[#6B5435]">Логины и пароли хранятся в .env на сервере. Здесь можно проверить, что вход работает.</p>
+            <h3 className="text-brand-ink">Аккаунты входа</h3>
+            <p className="text-sm text-brand-text">Логины и пароли хранятся в .env на сервере. Здесь можно проверить, что вход работает.</p>
           </div>
           <Button className={PRIMARY} disabled={busy} onClick={run}>
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
@@ -534,7 +538,7 @@ function KamkorTab() {
               <li key={a.key} className="flex items-start gap-2 text-sm">
                 {a.ok
                   ? <CheckCircle2 className="w-4 h-4 mt-0.5 text-emerald-700" />
-                  : <XCircle className="w-4 h-4 mt-0.5 text-red-700" />}
+                  : <XCircle className="w-4 h-4 mt-0.5 text-brand-alert" />}
                 <span>
                   <b>{a.label}</b> ({a.login || "логин не задан"}) — {a.ok ? "вход работает" : a.error}
                 </span>
@@ -551,6 +555,7 @@ function KamkorTab() {
 // ── Упавшие отправки ────────────────────────────────────
 
 function FailedJobsTab() {
+  const { canEdit } = useAuth();
   const [jobs, setJobs] = useState<FailedDispatchJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -585,7 +590,7 @@ function FailedJobsTab() {
 
   return (
     <div className={CARD}>
-      <p className="mb-4 text-sm text-[#6B5435]">
+      <p className="mb-4 text-sm text-brand-text">
         Отправки, которые не прошли (например, из-за неверного пароля Камкора). После исправления причины отправьте заново.
       </p>
       <div className="overflow-x-auto">
@@ -605,17 +610,17 @@ function FailedJobsTab() {
               <TableRow><TableCell colSpan={6} className="text-center"><Loader2 className="inline w-4 h-4 animate-spin" /></TableCell></TableRow>
             )}
             {!loading && jobs.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="text-center text-[#6B5435]">Упавших отправок нет</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-brand-text">Упавших отправок нет</TableCell></TableRow>
             )}
             {!loading && jobs.map((job) => (
               <TableRow key={job.id}>
                 <TableCell>{job.tour_label || "—"}</TableCell>
                 <TableCell>{job.touragent || "—"}</TableCell>
                 <TableCell>{job.pilgrims}</TableCell>
-                <TableCell className="max-w-xs whitespace-normal text-xs text-red-700">{job.error_message}</TableCell>
+                <TableCell className="max-w-xs whitespace-normal text-xs text-brand-alert">{job.error_message}</TableCell>
                 <TableCell className="text-xs">{formatDate(job.updated_at)}</TableCell>
                 <TableCell className="text-right">
-                  <Button size="sm" variant="outline" disabled={retrying !== null} onClick={() => retry(job)}>
+                  <Button size="sm" variant="outline" disabled={!canEdit || retrying !== null} onClick={() => retry(job)}>
                     {retrying === job.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
                     Отправить заново
                   </Button>
@@ -653,14 +658,15 @@ function AuditTab() {
               <TableHead>Справочник</TableHead>
               <TableHead>Действие</TableHead>
               <TableHead>Запись</TableHead>
+              <TableHead>Кто</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {items === null && (
-              <TableRow><TableCell colSpan={4} className="text-center"><Loader2 className="inline w-4 h-4 animate-spin" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center"><Loader2 className="inline w-4 h-4 animate-spin" /></TableCell></TableRow>
             )}
             {items?.length === 0 && (
-              <TableRow><TableCell colSpan={4} className="text-center text-[#6B5435]">Изменений пока нет</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-brand-text">Изменений пока нет</TableCell></TableRow>
             )}
             {items?.map((item) => {
               const config = ENTITIES[item.entity];
@@ -671,6 +677,7 @@ function AuditTab() {
                   <TableCell>{config?.tab || item.entity}</TableCell>
                   <TableCell>{ACTION_LABELS[item.action] || item.action}</TableCell>
                   <TableCell>{config ? config.title(record) : item.entity_id}</TableCell>
+                  <TableCell className="text-xs text-brand-muted">{item.user_email || "—"}</TableCell>
                 </TableRow>
               );
             })}
@@ -689,8 +696,8 @@ export function Settings() {
       <div className="max-w-6xl mx-auto">
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl mb-2 text-[#2B2318]">Настройки</h1>
-            <p className="text-[#6B5435]">Справочники для создания тур-кодов. Новые значения проверяются на Камкоре.</p>
+            <h1 className="text-3xl mb-2 text-brand-ink">Настройки</h1>
+            <p className="text-brand-text">Справочники для создания тур-кодов. Новые значения проверяются на Камкоре.</p>
           </div>
         </div>
 

@@ -4,11 +4,6 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ── enums ───────────────────────────────────────────────
 
 DO $$ BEGIN
-    CREATE TYPE user_role AS ENUM ('admin','manager','operator');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
     CREATE TYPE tour_status AS ENUM (
         'draft','confirmed','queued','processing',
         'submitted','completed','failed','cancelled'
@@ -27,10 +22,12 @@ END $$;
 CREATE TABLE IF NOT EXISTS users (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email           VARCHAR(255) UNIQUE NOT NULL,
-    password_hash   VARCHAR(255) NOT NULL,
-    full_name       VARCHAR(255) NOT NULL,
-    role            user_role NOT NULL DEFAULT 'operator',
+    password_hash   VARCHAR(255),
+    full_name       VARCHAR(255),
+    role            VARCHAR(20) NOT NULL DEFAULT 'viewer',  -- admin / editor / viewer
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    invite_token_hash VARCHAR(64),
+    invite_expires_at TIMESTAMP,
     created_at      TIMESTAMP NOT NULL DEFAULT now(),
     updated_at      TIMESTAMP NOT NULL DEFAULT now(),
     last_login_at   TIMESTAMP

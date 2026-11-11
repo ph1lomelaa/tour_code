@@ -87,115 +87,115 @@ export function Pilgrims() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl mb-2 text-[#2B2318]">Паломники</h1>
-          <p className="text-[#6B5435]">
+          <h1 className="text-3xl mb-2 text-brand-ink">Паломники</h1>
+          <p className="text-brand-text">
             Поиск паломников по фамилии и номеру паспорта
           </p>
         </div>
 
         {/* Search Filters */}
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-[#E5DDD0] mb-6">
+        <div className="bg-white rounded-2xl p-6 shadow-lg border border-brand-line mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Поиск по фамилии */}
             <div>
-              <label className="block text-sm mb-2 text-[#2B2318]">
+              <label className="block text-sm mb-2 text-brand-ink">
                 Фамилия
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B6F47]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" />
                 <Input
                   type="text"
                   value={searchLastName}
                   onChange={(e) => setSearchLastName(e.target.value)}
                   placeholder="Введите фамилию"
-                  className="pl-10 bg-[#F5F1EA] border-[#E5DDD0] focus:border-[#B8985F]"
+                  className="pl-10 bg-brand-cream border-brand-line focus:border-brand-accent"
                 />
               </div>
             </div>
 
             {/* Поиск по номеру документа */}
             <div>
-              <label className="block text-sm mb-2 text-[#2B2318]">
+              <label className="block text-sm mb-2 text-brand-ink">
                 Номер паспорта
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B6F47]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" />
                 <Input
                   type="text"
                   value={searchDocument}
                   onChange={(e) => setSearchDocument(e.target.value)}
                   placeholder="Введите номер паспорта"
-                  className="pl-10 bg-[#F5F1EA] border-[#E5DDD0] focus:border-[#B8985F]"
+                  className="pl-10 bg-brand-cream border-brand-line focus:border-brand-accent"
                 />
               </div>
             </div>
           </div>
 
           {/* Results count */}
-          <div className="mt-4 text-sm text-[#6B5435]">
+          <div className="mt-4 text-sm text-brand-text">
             Найдено паломников: {total}
           </div>
         </div>
 
         {/* Pilgrims Table */}
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-[#E5DDD0]">
-          <h2 className="mb-6 text-[#2B2318]">Список паломников</h2>
+        <div className="bg-white rounded-2xl p-6 shadow-lg border border-brand-line">
+          <h2 className="mb-6 text-brand-ink">Список паломников</h2>
 
           {error ? (
-            <div className="text-red-600">{error}</div>
+            <div className="text-brand-alert">{error}</div>
           ) : isLoading ? (
-            <div className="flex items-center justify-center h-40 text-[#8B6F47]">
+            <div className="flex items-center justify-center h-40 text-brand-muted">
               <p>Загрузка...</p>
             </div>
           ) : pilgrims.length > 0 ? (
-            <div className="border border-[#E5DDD0] rounded-lg overflow-hidden">
+            <div className="border border-brand-line rounded-lg overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-[#F5F1EA] hover:bg-[#F5F1EA]">
-                    <TableHead className="text-[#2B2318]">№</TableHead>
-                    <TableHead className="text-[#2B2318]">Фамилия</TableHead>
-                    <TableHead className="text-[#2B2318]">Имя</TableHead>
-                    <TableHead className="text-[#2B2318]">
+                  <TableRow className="bg-brand-cream hover:bg-brand-cream">
+                    <TableHead className="text-brand-ink">№</TableHead>
+                    <TableHead className="text-brand-ink">Фамилия</TableHead>
+                    <TableHead className="text-brand-ink">Имя</TableHead>
+                    <TableHead className="text-brand-ink">
                       Номер паспорта
                     </TableHead>
-                    <TableHead className="text-[#2B2318]">Тур код</TableHead>
-                    <TableHead className="text-[#2B2318]">Пакет</TableHead>
-                    <TableHead className="text-[#2B2318]">Тур</TableHead>
-                    <TableHead className="text-[#2B2318]">Маршрут</TableHead>
-                    <TableHead className="text-[#2B2318]">Период</TableHead>
+                    <TableHead className="text-brand-ink">Тур код</TableHead>
+                    <TableHead className="text-brand-ink">Пакет</TableHead>
+                    <TableHead className="text-brand-ink">Тур</TableHead>
+                    <TableHead className="text-brand-ink">Маршрут</TableHead>
+                    <TableHead className="text-brand-ink">Период</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pilgrims.map((pilgrim, index) => (
                     <TableRow
                       key={pilgrim.id}
-                      className="hover:bg-[#F5F1EA]/50"
+                      className="hover:bg-brand-cream/50"
                     >
-                      <TableCell className="text-[#6B5435]">
+                      <TableCell className="text-brand-text">
                         {(page - 1) * PAGE_SIZE + index + 1}
                       </TableCell>
-                      <TableCell className="text-[#2B2318]">
+                      <TableCell className="text-brand-ink">
                         {pilgrim.surname}
                       </TableCell>
-                      <TableCell className="text-[#2B2318]">
+                      <TableCell className="text-brand-ink">
                         {pilgrim.name}
                       </TableCell>
-                      <TableCell className="text-[#6B5435]">
+                      <TableCell className="text-brand-text">
                         {pilgrim.document || "-"}
                       </TableCell>
-                      <TableCell className="text-[#6B5435]">
+                      <TableCell className="text-brand-text">
                         {pilgrim.tour_code || "-"}
                       </TableCell>
-                      <TableCell className="text-[#6B5435]">
+                      <TableCell className="text-brand-text">
                         {pilgrim.package_name || "-"}
                       </TableCell>
-                      <TableCell className="text-[#6B5435]">
+                      <TableCell className="text-brand-text">
                         {pilgrim.tour_name || "-"}
                       </TableCell>
-                      <TableCell className="text-[#6B5435]">
+                      <TableCell className="text-brand-text">
                         {pilgrim.tour_route || "-"}
                       </TableCell>
-                      <TableCell className="text-[#6B5435]">
+                      <TableCell className="text-brand-text">
                         {pilgrim.date_start && pilgrim.date_end
                           ? `${pilgrim.date_start} - ${pilgrim.date_end}`
                           : "-"}
@@ -206,7 +206,7 @@ export function Pilgrims() {
               </Table>
             </div>
           ) : (
-            <div className="flex items-center justify-center h-64 text-[#8B6F47]">
+            <div className="flex items-center justify-center h-64 text-brand-muted">
               <p>
                 {hasFilters
                   ? "Паломники не найдены. Попробуйте изменить критерии поиска"
@@ -217,13 +217,13 @@ export function Pilgrims() {
 
           {!isLoading && !error && totalPages > 0 && (
             <div className="mt-4 flex items-center justify-between">
-              <p className="text-sm text-[#6B5435]">
+              <p className="text-sm text-brand-text">
                 Страница {page} из {totalPages}
               </p>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                  className="border-brand-line hover:bg-brand-cream"
                   onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
                   disabled={page <= 1}
                 >
@@ -231,7 +231,7 @@ export function Pilgrims() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                  className="border-brand-line hover:bg-brand-cream"
                   onClick={() => setPage((prev) => prev + 1)}
                   disabled={page >= totalPages}
                 >

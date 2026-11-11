@@ -24,6 +24,7 @@ import { uploadManifest, Pilgrim } from "../../src/lib/api/manifest";
 import { enqueueDispatchJob, getDispatchJob } from "../../src/lib/api/dispatch";
 import { downloadTourPackageExcel, getTourPackage } from "../../src/lib/api/tourPackages";
 import { useSearchParams } from "react-router";
+import { useAuth } from "../context/AuthContext";
 import { useReferenceData, withCurrent } from "../hooks/useReferenceData";
 
 
@@ -359,6 +360,25 @@ const formatDispatchMessage = (message?: string | null) => {
 };
 
 export function CreateTourCode() {
+  const { canEdit } = useAuth();
+  if (!canEdit) return <ReadOnlyNotice />;
+  return <CreateTourCodeForm />;
+}
+
+function ReadOnlyNotice() {
+  return (
+    <div className="p-4 md:p-12">
+      <div className="mx-auto max-w-xl rounded-2xl border border-brand-line bg-white p-8 text-center shadow-lg">
+        <h1 className="mb-2 text-2xl text-brand-ink">Только просмотр</h1>
+        <p className="text-brand-text">
+          У вашего аккаунта доступ на просмотр. Создавать тур-коды могут редакторы — обратитесь к администратору.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function CreateTourCodeForm() {
   const [searchParams] = useSearchParams();
   const prefilledTourId = searchParams.get("tourId");
 
@@ -1398,7 +1418,7 @@ export function CreateTourCode() {
             if (event.key === "Enter") commitEditCell();
             if (event.key === "Escape") cancelEditCell();
           }}
-          className="h-8 bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+          className="h-8 bg-white border-brand-line focus:border-brand-accent"
         />
       );
     }
@@ -1428,18 +1448,18 @@ export function CreateTourCode() {
 
   return (
     <>
-    <div className="relative min-h-full bg-[#E8E0D4]">
+    <div className="relative min-h-full bg-brand-cream-2">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-[#C4A265]/[0.1] blur-[100px]" />
-        <div className="absolute top-[40%] -left-60 w-[500px] h-[500px] rounded-full bg-[#B8985F]/[0.08] blur-[120px]" />
-        <div className="absolute -bottom-32 left-1/3 w-[400px] h-[400px] rounded-full bg-[#D4C5B0]/[0.09] blur-[100px]" />
+        <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-brand-gold/[0.1] blur-[100px]" />
+        <div className="absolute top-[40%] -left-60 w-[500px] h-[500px] rounded-full bg-brand-accent/[0.08] blur-[120px]" />
+        <div className="absolute -bottom-32 left-1/3 w-[400px] h-[400px] rounded-full bg-brand-sand/[0.09] blur-[100px]" />
       </div>
       <div className="relative px-6 py-10 md:px-14 md:py-14">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl mb-2 text-[#2B2318]">Создать тур код</h1>
-          <p className="text-[#6B5435]">
+          <h1 className="text-3xl mb-2 text-brand-ink">Создать тур код</h1>
+          <p className="text-brand-text">
             Заполните данные для создания нового тур кода
           </p>
         </div>
@@ -1448,15 +1468,15 @@ export function CreateTourCode() {
         <div className="rounded-2xl backdrop-blur-2xl bg-white/[0.55] border border-white/70 shadow-[0_6px_24px_rgba(139,111,71,0.08),0_2px_6px_rgba(139,111,71,0.04)] p-6 md:p-8">
           <div className="space-y-6">
             {isPrefillingFromPackage && (
-              <p className="text-sm text-[#6B5435]">
+              <p className="text-sm text-brand-text">
                 Загружаю сохраненные данные выбранного тура...
               </p>
             )}
             {/* Поиск туров по дате */}
             <div className="space-y-4">
               <div>
-                <label className="block mb-2 text-[#2B2318] flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-[#B8985F]" />
+                <label className="block mb-2 text-brand-ink flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-brand-accent" />
                   Поиск туров по дате вылета
                 </label>
                 <div className="flex gap-2">
@@ -1465,7 +1485,7 @@ export function CreateTourCode() {
                     value={dateInput}
                     onChange={(e) => setDateInput(e.target.value)}
                     placeholder="Введите дату (например, 17.02)"
-                    className="bg-white/40 border-white/60 focus:border-[#B8985F]"
+                    className="bg-white/40 border-white/60 focus:border-brand-accent"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         handleSearchTours();
@@ -1475,18 +1495,18 @@ export function CreateTourCode() {
                   <Button
                     onClick={handleSearchTours}
                     disabled={isLoadingTours}
-                    className="bg-gradient-to-r from-[#B8985F] to-[#A88952] hover:from-[#A88952] hover:to-[#8B6F47] text-white"
+                    className="bg-gradient-to-r from-brand-accent to-brand-accent-hover hover:from-brand-accent-hover hover:to-brand-muted text-white"
                   >
                     {isLoadingTours ? "Поиск..." : "Найти"}
                   </Button>
                 </div>
                 {tourSearchError && (
-                  <p className="mt-2 text-sm text-red-600">{tourSearchError}</p>
+                  <p className="mt-2 text-sm text-brand-alert">{tourSearchError}</p>
                 )}
                 <Button
                   variant="outline"
                   onClick={() => setIsCreateTourOpen(true)}
-                  className="w-full mt-3 border-[#B8985F] text-[#B8985F] hover:bg-[#B8985F]/10"
+                  className="w-full mt-3 border-brand-accent text-brand-accent hover:bg-brand-accent/10"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Создать тур вручную
@@ -1496,7 +1516,7 @@ export function CreateTourCode() {
               {/* Результаты поиска туров */}
               {tourOptions.length > 0 && (
                 <div>
-                  <h4 className="mb-3 text-[#2B2318]">
+                  <h4 className="mb-3 text-brand-ink">
                     Найдено туров: {tourOptions.length}
                   </h4>
                   <div className="space-y-2">
@@ -1509,30 +1529,30 @@ export function CreateTourCode() {
                           onClick={() => handleTourSelect(tour)}
                           className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
                             isSelected
-                              ? "bg-gradient-to-r from-[#B8985F]/40 to-[#A88952]/30 border-[#B8985F] shadow-lg ring-2 ring-[#B8985F]/50"
-                              : "bg-white/30 border-white/60 hover:border-[#B8985F] hover:shadow-md"
+                              ? "bg-gradient-to-r from-brand-accent/40 to-brand-accent-hover/30 border-brand-accent shadow-lg ring-2 ring-brand-accent/50"
+                              : "bg-white/30 border-white/60 hover:border-brand-accent hover:shadow-md"
                           }`}
                         >
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                             <div>
-                              <p className="text-xs text-[#6B5435]">Период тура</p>
-                              <p className="text-sm text-[#2B2318] font-medium">
+                              <p className="text-xs text-brand-text">Период тура</p>
+                              <p className="text-sm text-brand-ink font-medium">
                                 {tour.date_start} - {tour.date_end}
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs text-[#6B5435]">Продолжительность</p>
-                              <p className="text-sm text-[#2B2318] font-medium">
+                              <p className="text-xs text-brand-text">Продолжительность</p>
+                              <p className="text-sm text-brand-ink font-medium">
                                 {tour.days} {tour.days === 1 ? "день" : tour.days < 5 ? "дня" : "дней"}
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs text-[#6B5435]">Маршрут</p>
-                              <p className="text-sm text-[#2B2318] font-medium">{tour.route}</p>
+                              <p className="text-xs text-brand-text">Маршрут</p>
+                              <p className="text-sm text-brand-ink font-medium">{tour.route}</p>
                             </div>
                             <div>
-                              <p className="text-xs text-[#6B5435]">Город вылета</p>
-                              <p className="text-sm text-[#2B2318] font-medium">{tour.departure_city}</p>
+                              <p className="text-xs text-brand-text">Город вылета</p>
+                              <p className="text-sm text-brand-ink font-medium">{tour.departure_city}</p>
                             </div>
                           </div>
                         </div>
@@ -1547,18 +1567,18 @@ export function CreateTourCode() {
             {dateRange && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white/30 p-4 rounded-lg border border-white/60">
-                  <label className="block mb-1 text-sm text-[#2B2318] flex items-center gap-2">
-                    <Calendar className="w-3 h-3 text-[#B8985F]" />
+                  <label className="block mb-1 text-sm text-brand-ink flex items-center gap-2">
+                    <Calendar className="w-3 h-3 text-brand-accent" />
                     Период тура
                   </label>
-                  <div className="text-base text-[#2B2318]">{dateRange}</div>
+                  <div className="text-base text-brand-ink">{dateRange}</div>
                 </div>
                 <div className="bg-white/30 p-4 rounded-lg border border-white/60">
-                  <label className="block mb-1 text-sm text-[#2B2318] flex items-center gap-2">
-                    <Clock className="w-3 h-3 text-[#B8985F]" />
+                  <label className="block mb-1 text-sm text-brand-ink flex items-center gap-2">
+                    <Clock className="w-3 h-3 text-brand-accent" />
                     Продолжительность
                   </label>
-                  <div className="text-base text-[#2B2318]">
+                  <div className="text-base text-brand-ink">
                     {days} {days === 1 ? "день" : days < 5 ? "дня" : "дней"}
                   </div>
                 </div>
@@ -1568,12 +1588,12 @@ export function CreateTourCode() {
             {/* Страна и отель */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block mb-2 text-[#2B2318] flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-[#B8985F]" />
+                <label className="block mb-2 text-brand-ink flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-brand-accent" />
                   Страна
                 </label>
                 <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-                  <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
+                  <SelectTrigger className="bg-white/40 border-white/60 focus:border-brand-accent">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1584,12 +1604,12 @@ export function CreateTourCode() {
                 </Select>
               </div>
               <div>
-                <label className="block mb-2 text-[#2B2318] flex items-center gap-2">
-                  <Plane className="w-4 h-4 text-[#B8985F]" />
+                <label className="block mb-2 text-brand-ink flex items-center gap-2">
+                  <Plane className="w-4 h-4 text-brand-accent" />
                   Авиалиния
                 </label>
                 <Select value={selectedAirline} onValueChange={setSelectedAirline}>
-                  <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
+                  <SelectTrigger className="bg-white/40 border-white/60 focus:border-brand-accent">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1602,12 +1622,12 @@ export function CreateTourCode() {
                 </Select>
               </div>
               <div>
-                <label className="block mb-2 text-[#2B2318] flex items-center gap-2">
-                  <Building className="w-4 h-4 text-[#B8985F]" />
+                <label className="block mb-2 text-brand-ink flex items-center gap-2">
+                  <Building className="w-4 h-4 text-brand-accent" />
                   Название отеля
                 </label>
                 <Select value={selectedHotel} onValueChange={setSelectedHotel}>
-                  <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
+                  <SelectTrigger className="bg-white/40 border-white/60 focus:border-brand-accent">
                     <SelectValue placeholder="Выберите отель" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1624,7 +1644,7 @@ export function CreateTourCode() {
             {/* Тур-оператор — выбор аккаунта для логина в партнёрскую систему */}
             <div className="border border-white/60 rounded-lg p-4 bg-white/30">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-sm font-medium text-[#2B2318]">Тур-оператор (аккаунт авторизации)</h4>
+                <h4 className="text-sm font-medium text-brand-ink">Тур-оператор (аккаунт авторизации)</h4>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
@@ -1632,8 +1652,8 @@ export function CreateTourCode() {
                     variant={selectedAgentKey === "hikmet" ? "default" : "outline"}
                     className={
                       selectedAgentKey === "hikmet"
-                        ? "bg-[#B8985F] text-white hover:bg-[#a0834f]"
-                        : "border-[#E5DDD0] hover:bg-white"
+                        ? "bg-brand-accent text-white hover:bg-brand-accent-hover"
+                        : "border-brand-line hover:bg-white"
                     }
                     onClick={() => setSelectedAgentKey("hikmet")}
                   >
@@ -1645,8 +1665,8 @@ export function CreateTourCode() {
                     variant={selectedAgentKey === "almarwa" ? "default" : "outline"}
                     className={
                       selectedAgentKey === "almarwa"
-                        ? "bg-[#B8985F] text-white hover:bg-[#a0834f]"
-                        : "border-[#E5DDD0] hover:bg-white"
+                        ? "bg-brand-accent text-white hover:bg-brand-accent-hover"
+                        : "border-brand-line hover:bg-white"
                     }
                     onClick={() => setSelectedAgentKey("almarwa")}
                   >
@@ -1654,7 +1674,7 @@ export function CreateTourCode() {
                   </Button>
                 </div>
               </div>
-              <p className="text-xs text-[#6B6253]">
+              <p className="text-xs text-brand-text">
                 Выбранный тур-оператор определяет, под каким логином/паролем
                 бэкенд авторизуется в партнёрской системе при отправке.
               </p>
@@ -1669,7 +1689,7 @@ export function CreateTourCode() {
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="border-[#E5DDD0] hover:bg-white"
+                      className="border-brand-line hover:bg-white"
                       onClick={() => applyTouragentPreset(preset.name, preset.bin)}
                     >
                       {preset.name}
@@ -1679,7 +1699,7 @@ export function CreateTourCode() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="border-[#E5DDD0] hover:bg-white"
+                    className="border-brand-line hover:bg-white"
                     onClick={clearDispatchOverrides}
                   >
                     Очистить
@@ -1688,46 +1708,46 @@ export function CreateTourCode() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block mb-1 text-sm text-[#2B2318]">Тур-агент</label>
+                  <label className="block mb-1 text-sm text-brand-ink">Тур-агент</label>
                   <Input
                     value={dispatchTouragentName}
                     onChange={(e) => {
                       touragentTouchedRef.current = true;
                       setDispatchTouragentName(e.target.value);
                     }}
-                    className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                    className="bg-white border-brand-line focus:border-brand-accent"
                   />
                 </div>
                 <div>
-                  <label className="block mb-1 text-sm text-[#2B2318]">БИН тур-агента</label>
+                  <label className="block mb-1 text-sm text-brand-ink">БИН тур-агента</label>
                   <Input
                     value={dispatchTouragentBin}
                     onChange={(e) => {
                       touragentTouchedRef.current = true;
                       setDispatchTouragentBin(e.target.value);
                     }}
-                    className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                    className="bg-white border-brand-line focus:border-brand-accent"
                   />
                 </div>
               </div>
             </div>
 
             {/* Манифест */}
-            <div className="border-t border-[#E5DDD0] pt-6">
-              <h3 className="mb-4 text-[#2B2318] flex items-center gap-2">
-                <Upload className="w-5 h-5 text-[#B8985F]" />
+            <div className="border-t border-brand-line pt-6">
+              <h3 className="mb-4 text-brand-ink flex items-center gap-2">
+                <Upload className="w-5 h-5 text-brand-accent" />
                 Парсинг манифеста
               </h3>
 
 	              <div className="mb-4">
-	                <label className="block mb-2 text-sm text-[#2B2318]">
+	                <label className="block mb-2 text-sm text-brand-ink">
 	                  Данные манифеста
 	                </label>
 	                <div
 	                  className={`mt-3 border-2 border-dashed rounded-lg p-6 text-center transition-all ${
 	                    selectedTour
-	                      ? "border-white/60 cursor-pointer hover:border-[#B8985F] hover:bg-white/30"
-	                      : "border-[#E5DDD0] cursor-not-allowed bg-[#F5F1EA]/70 opacity-70"
+	                      ? "border-white/60 cursor-pointer hover:border-brand-accent hover:bg-white/30"
+	                      : "border-brand-line cursor-not-allowed bg-brand-cream/70 opacity-70"
 	                  }`}
 	                  onClick={() => {
 	                    if (!selectedTour || isUploadingManifest || isComparing) return;
@@ -1742,28 +1762,28 @@ export function CreateTourCode() {
 	                    onChange={handleManifestUpload}
 	                    className="hidden"
 	                  />
-	                  <Upload className="w-8 h-8 mx-auto mb-2 text-[#B8985F]" />
+	                  <Upload className="w-8 h-8 mx-auto mb-2 text-brand-accent" />
 	                  {!selectedTour ? (
 	                    <>
-	                      <p className="text-sm text-[#2B2318] font-medium">Сначала выберите тур</p>
-	                      <p className="text-xs text-[#6B5435] mt-1">После выбора тура станет доступна загрузка манифеста</p>
+	                      <p className="text-sm text-brand-ink font-medium">Сначала выберите тур</p>
+	                      <p className="text-xs text-brand-text mt-1">После выбора тура станет доступна загрузка манифеста</p>
 	                    </>
 	                  ) : manifestFile ? (
-	                    <p className="text-sm text-[#2B2318]">{manifestFile.name}</p>
+	                    <p className="text-sm text-brand-ink">{manifestFile.name}</p>
 	                  ) : (
 	                    <>
-	                      <p className="text-sm text-[#2B2318] font-medium">Нажмите для загрузки файла</p>
-                      <p className="text-xs text-[#6B5435] mt-1">Поддерживаются форматы: .xlsx, .xls, .csv</p>
+	                      <p className="text-sm text-brand-ink font-medium">Нажмите для загрузки файла</p>
+                      <p className="text-xs text-brand-text mt-1">Поддерживаются форматы: .xlsx, .xls, .csv</p>
                     </>
                   )}
                   {(isUploadingManifest || isComparing) && (
-                    <p className="text-sm text-[#B8985F] mt-2">
+                    <p className="text-sm text-brand-accent mt-2">
                       {isComparing ? "Сравнение с таблицей..." : "Загрузка..."}
                     </p>
                   )}
                 </div>
                 {manifestError && (
-                  <p className="mt-2 text-sm text-red-600">{manifestError}</p>
+                  <p className="mt-2 text-sm text-brand-alert">{manifestError}</p>
                 )}
               </div>
 
@@ -1774,13 +1794,13 @@ export function CreateTourCode() {
                     <p className="text-2xl font-bold text-green-700">{allMatched.length}</p>
                     <p className="text-xs text-green-600">Совпадений</p>
                   </div>
-                  <div className="bg-orange-50 p-3 rounded-lg border border-orange-200 text-center">
-                    <p className="text-2xl font-bold text-orange-700">{allInSheetNotManifest.length}</p>
-                    <p className="text-xs text-orange-600">В таблице, нет в манифесте</p>
+                  <div className="bg-brand-alert-soft p-3 rounded-lg border border-brand-alert-line text-center">
+                    <p className="text-2xl font-bold text-brand-alert">{allInSheetNotManifest.length}</p>
+                    <p className="text-xs text-brand-alert">В таблице, нет в манифесте</p>
                   </div>
-                  <div className="bg-red-50 p-3 rounded-lg border border-red-200 text-center">
-                    <p className="text-2xl font-bold text-red-700">{allInManifestNotSheet.length}</p>
-                    <p className="text-xs text-red-600">В манифесте, нет в таблице</p>
+                  <div className="bg-brand-alert-soft p-3 rounded-lg border border-brand-alert-line text-center">
+                    <p className="text-2xl font-bold text-brand-alert">{allInManifestNotSheet.length}</p>
+                    <p className="text-xs text-brand-alert">В манифесте, нет в таблице</p>
                   </div>
                 </div>
               )}
@@ -1789,7 +1809,7 @@ export function CreateTourCode() {
               {allMatched.length > 0 && (
                 <div className="mb-6">
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <h4 className="text-[#2B2318] font-medium">
+                    <h4 className="text-brand-ink font-medium">
                       Совпадения ({allMatched.length})
                       {tourCodesReadyCount > 0 && (
                         <span className="ml-2 text-sm text-green-700">
@@ -1803,7 +1823,7 @@ export function CreateTourCode() {
                           type="button"
                           size="sm"
                           variant="outline"
-                          className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                          className="border-brand-line hover:bg-brand-cream"
                           disabled={isLoadingTourCodes}
                           onClick={() => refreshTourCodes(dispatchTourId)}
                         >
@@ -1814,7 +1834,7 @@ export function CreateTourCode() {
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                        className="border-brand-line hover:bg-brand-cream"
                         disabled={isExportingExcel}
                         onClick={handleDownloadTourCodes}
                       >
@@ -1823,20 +1843,20 @@ export function CreateTourCode() {
                       </Button>
                     </div>
                   </div>
-                  <div className="border border-[#E5DDD0] rounded-lg overflow-hidden">
+                  <div className="border border-brand-line rounded-lg overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-green-50 hover:bg-green-50">
-                          <TableHead className="text-[#2B2318] w-12">№</TableHead>
-                          <TableHead className="text-[#2B2318]">Фамилия</TableHead>
-                          <TableHead className="text-[#2B2318]">Имя</TableHead>
-                          <TableHead className="text-[#2B2318]">Паспорт</TableHead>
-                          <TableHead className="text-[#2B2318]">Пакет</TableHead>
-                          <TableHead className="text-[#2B2318]">Тур</TableHead>
-                          <TableHead className="text-[#2B2318]">Тур-код</TableHead>
-                          <TableHead className="text-[#2B2318]">Старый формат</TableHead>
-                          <TableHead className="text-[#2B2318] text-center">Нерезидент</TableHead>
-                          <TableHead className="text-[#2B2318] w-12"></TableHead>
+                          <TableHead className="text-brand-ink w-12">№</TableHead>
+                          <TableHead className="text-brand-ink">Фамилия</TableHead>
+                          <TableHead className="text-brand-ink">Имя</TableHead>
+                          <TableHead className="text-brand-ink">Паспорт</TableHead>
+                          <TableHead className="text-brand-ink">Пакет</TableHead>
+                          <TableHead className="text-brand-ink">Тур</TableHead>
+                          <TableHead className="text-brand-ink">Тур-код</TableHead>
+                          <TableHead className="text-brand-ink">Старый формат</TableHead>
+                          <TableHead className="text-brand-ink text-center">Нерезидент</TableHead>
+                          <TableHead className="text-brand-ink w-12"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1847,21 +1867,21 @@ export function CreateTourCode() {
                             onDoubleClick={() => openMatchedEditor(i)}
                             title="Двойной клик для редактирования"
                           >
-                            <TableCell className="text-[#6B5435]">{i + 1}</TableCell>
-                            <TableCell className="text-[#2B2318]">{p.surname}</TableCell>
-                            <TableCell className="text-[#2B2318]">{p.name}</TableCell>
-                            <TableCell className="text-[#6B5435]">{p.document || "-"}</TableCell>
-                            <TableCell className="text-[#6B5435]">{p.package_name}</TableCell>
-                            <TableCell className="text-[#6B5435]">{p.tour_name}</TableCell>
-                            <TableCell className={p.tour_code ? "text-green-700 font-medium" : "text-[#6B5435]"}>
+                            <TableCell className="text-brand-text">{i + 1}</TableCell>
+                            <TableCell className="text-brand-ink">{p.surname}</TableCell>
+                            <TableCell className="text-brand-ink">{p.name}</TableCell>
+                            <TableCell className="text-brand-text">{p.document || "-"}</TableCell>
+                            <TableCell className="text-brand-text">{p.package_name}</TableCell>
+                            <TableCell className="text-brand-text">{p.tour_name}</TableCell>
+                            <TableCell className={p.tour_code ? "text-green-700 font-medium" : "text-brand-text"}>
                               {p.tour_code || "-"}
                             </TableCell>
-                            <TableCell className="text-[#6B5435]">{p.tour_code_old || "-"}</TableCell>
+                            <TableCell className="text-brand-text">{p.tour_code_old || "-"}</TableCell>
                             <TableCell className="text-center" onDoubleClick={(event) => event.stopPropagation()}>
                               <Checkbox
                                 checked={p.resident_status === "нерезидент"}
                                 aria-label={`Отметить ${p.surname} ${p.name} как нерезидента`}
-                                className="border-[#B8985F] data-[state=checked]:bg-[#B8985F]"
+                                className="border-brand-accent data-[state=checked]:bg-brand-accent"
                                 onCheckedChange={(checked) => handleNonresidentChange(i, checked === true)}
                                 onClick={(event) => event.stopPropagation()}
                               />
@@ -1870,7 +1890,7 @@ export function CreateTourCode() {
                               <button
                                 type="button"
                                 title="Удалить из списка"
-                                className="text-[#B96464] hover:text-[#8f4a4a]"
+                                className="text-brand-alert hover:text-brand-alert-strong"
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   handleRemoveMatchedRow(i);
@@ -1890,47 +1910,47 @@ export function CreateTourCode() {
               {/* Таблица 2: В таблице, нет в манифесте */}
               {allInSheetNotManifest.length > 0 && (
                 <div className="mb-6">
-                  <h4 className="mb-2 text-[#2B2318] font-medium">
+                  <h4 className="mb-2 text-brand-ink font-medium">
                     В таблице, нет в манифесте ({allInSheetNotManifest.length})
                   </h4>
-                  <div className="border border-[#FFD4A3] rounded-lg overflow-hidden">
+                  <div className="border border-brand-accent-200 rounded-lg overflow-hidden">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-[#FFF4E6] hover:bg-[#FFF4E6]">
-                          <TableHead className="text-[#2B2318] w-12">№</TableHead>
-                          <TableHead className="text-[#2B2318]">Фамилия</TableHead>
-                          <TableHead className="text-[#2B2318]">Имя</TableHead>
-                          <TableHead className="text-[#2B2318]">Паспорт</TableHead>
-                          <TableHead className="text-[#2B2318]">Пакет</TableHead>
-                          <TableHead className="text-[#2B2318]">Добавить</TableHead>
+                        <TableRow className="bg-brand-accent-soft hover:bg-brand-accent-soft">
+                          <TableHead className="text-brand-ink w-12">№</TableHead>
+                          <TableHead className="text-brand-ink">Фамилия</TableHead>
+                          <TableHead className="text-brand-ink">Имя</TableHead>
+                          <TableHead className="text-brand-ink">Паспорт</TableHead>
+                          <TableHead className="text-brand-ink">Пакет</TableHead>
+                          <TableHead className="text-brand-ink">Добавить</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {allInSheetNotManifest.map((p, i) => (
-                          <TableRow key={`s-${p.surname}-${p.name}-${p.document}-${i}`} className="hover:bg-[#FFF4E6]/30">
-                            <TableCell className="text-[#6B5435]">{i + 1}</TableCell>
+                          <TableRow key={`s-${p.surname}-${p.name}-${p.document}-${i}`} className="hover:bg-brand-accent-soft/30">
+                            <TableCell className="text-brand-text">{i + 1}</TableCell>
                             <TableCell>
-                              {renderEditableCell("sheet", i, "surname", p.surname, "text-[#2B2318]")}
+                              {renderEditableCell("sheet", i, "surname", p.surname, "text-brand-ink")}
                             </TableCell>
                             <TableCell>
-                              {renderEditableCell("sheet", i, "name", p.name, "text-[#2B2318]")}
+                              {renderEditableCell("sheet", i, "name", p.name, "text-brand-ink")}
                             </TableCell>
                             <TableCell>
-                              {renderEditableCell("sheet", i, "document", p.document || "", "text-[#6B5435]")}
+                              {renderEditableCell("sheet", i, "document", p.document || "", "text-brand-text")}
                             </TableCell>
-                            <TableCell className="text-[#6B5435]">{p.package_name}</TableCell>
+                            <TableCell className="text-brand-text">{p.package_name}</TableCell>
                             <TableCell>
                               {normalizeDocument(p.document) ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                                  className="border-brand-line hover:bg-brand-cream"
                                   onClick={() => handleAddToMatchedFromSheet(i)}
                                 >
                                   Добавить
                                 </Button>
                               ) : (
-                                <span className="text-[#6B5435]">-</span>
+                                <span className="text-brand-text">-</span>
                               )}
                             </TableCell>
                           </TableRow>
@@ -1944,49 +1964,49 @@ export function CreateTourCode() {
               {/* Таблица 3: В манифесте, нет в таблице */}
               {allInManifestNotSheet.length > 0 && (
                 <div className="mb-6">
-                  <h4 className="mb-2 text-[#2B2318] font-medium">
+                  <h4 className="mb-2 text-brand-ink font-medium">
                     В манифесте, нет в таблице ({allInManifestNotSheet.length})
                   </h4>
-                  <div className="border border-red-200 rounded-lg overflow-hidden">
+                  <div className="border border-brand-alert-line rounded-lg overflow-hidden">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-red-50 hover:bg-red-50">
-                          <TableHead className="text-[#2B2318] w-12">№</TableHead>
-                          <TableHead className="text-[#2B2318]">Фамилия</TableHead>
-                          <TableHead className="text-[#2B2318]">Имя</TableHead>
-                          <TableHead className="text-[#2B2318]">Паспорт</TableHead>
-                          <TableHead className="text-[#2B2318]">Пакет</TableHead>
-                          <TableHead className="text-[#2B2318]">Тур</TableHead>
-                          <TableHead className="text-[#2B2318]">Добавить</TableHead>
+                        <TableRow className="bg-brand-alert-soft hover:bg-brand-alert-soft">
+                          <TableHead className="text-brand-ink w-12">№</TableHead>
+                          <TableHead className="text-brand-ink">Фамилия</TableHead>
+                          <TableHead className="text-brand-ink">Имя</TableHead>
+                          <TableHead className="text-brand-ink">Паспорт</TableHead>
+                          <TableHead className="text-brand-ink">Пакет</TableHead>
+                          <TableHead className="text-brand-ink">Тур</TableHead>
+                          <TableHead className="text-brand-ink">Добавить</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {allInManifestNotSheet.map((p, i) => (
-                          <TableRow key={`n-${p.document}-${i}`} className="hover:bg-red-50/30">
-                            <TableCell className="text-[#6B5435]">{i + 1}</TableCell>
+                          <TableRow key={`n-${p.document}-${i}`} className="hover:bg-brand-alert-soft/30">
+                            <TableCell className="text-brand-text">{i + 1}</TableCell>
                             <TableCell>
-                              {renderEditableCell("manifest", i, "surname", p.surname, "text-[#2B2318]")}
+                              {renderEditableCell("manifest", i, "surname", p.surname, "text-brand-ink")}
                             </TableCell>
                             <TableCell>
-                              {renderEditableCell("manifest", i, "name", p.name, "text-[#2B2318]")}
+                              {renderEditableCell("manifest", i, "name", p.name, "text-brand-ink")}
                             </TableCell>
                             <TableCell>
-                              {renderEditableCell("manifest", i, "document", p.document || "", "text-[#6B5435]")}
+                              {renderEditableCell("manifest", i, "document", p.document || "", "text-brand-text")}
                             </TableCell>
-                            <TableCell className="text-[#6B5435]">{p.package_name || "-"}</TableCell>
-                            <TableCell className="text-[#6B5435]">{p.tour_name || "-"}</TableCell>
+                            <TableCell className="text-brand-text">{p.package_name || "-"}</TableCell>
+                            <TableCell className="text-brand-text">{p.tour_name || "-"}</TableCell>
                             <TableCell>
                               {normalizeDocument(p.document) ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                                  className="border-brand-line hover:bg-brand-cream"
                                   onClick={() => handleAddToMatchedFromManifest(i)}
                                 >
                                   Добавить
                                 </Button>
                               ) : (
-                                <span className="text-[#6B5435]">-</span>
+                                <span className="text-brand-text">-</span>
                               )}
                             </TableCell>
                           </TableRow>
@@ -1999,49 +2019,49 @@ export function CreateTourCode() {
             </div>
 
             {/* Кнопки */}
-            <div className="flex gap-4 pt-4 border-t border-[#E5DDD0]">
+            <div className="flex gap-4 pt-4 border-t border-brand-line">
               <Button
                 onClick={handleCreateTourCode}
                 disabled={!selectedTour || !selectedDateShort || !selectedFlight || isQueueingDispatch}
-                className="bg-gradient-to-r from-[#B8985F] to-[#A88952] hover:from-[#A88952] hover:to-[#8B6F47] text-white"
+                className="bg-gradient-to-r from-brand-accent to-brand-accent-hover hover:from-brand-accent-hover hover:to-brand-muted text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 {isQueueingDispatch ? "Постановка в очередь..." : "Создать тур код"}
               </Button>
               <Button
                 variant="outline"
-                className="border-[#E5DDD0] hover:bg-[#F5F1EA]"
+                className="border-brand-line hover:bg-brand-cream"
               >
                 Отмена
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="border-[#B8985F] text-[#6B5435] hover:bg-[#F5F1EA]"
+                className="border-brand-accent text-brand-text hover:bg-brand-cream"
                 onClick={() => window.open(KAMKOR_PORTAL_URL, "_blank", "noopener,noreferrer")}
               >
                 Открыть Камкор
               </Button>
             </div>
             {dispatchHasProgress && (
-              <div className="mt-4 rounded-xl border border-[#E5DDD0] bg-[#FCF8F2] p-4">
+              <div className="mt-4 rounded-xl border border-brand-line bg-brand-card p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm text-[#2B2318]">
+                  <div className="text-sm text-brand-ink">
                     Статус отправки
                   </div>
-                  <div className={`text-sm font-medium ${dispatchStatusView?.tone || "text-[#6B5435]"}`}>
+                  <div className={`text-sm font-medium ${dispatchStatusView?.tone || "text-brand-text"}`}>
                     {dispatchStatusView?.label || dispatchJobStatus || "В очереди"}
                   </div>
                 </div>
                 <div className="mt-3">
-                  <Progress value={dispatchProgressValue} className="h-2 bg-[#E5DDD0]" />
-                  <div className="mt-2 flex items-center justify-between text-xs text-[#6B5435]">
+                  <Progress value={dispatchProgressValue} className="h-2 bg-brand-line" />
+                  <div className="mt-2 flex items-center justify-between text-xs text-brand-text">
                     <span>Отправлено: {dispatchItemsSent} / {dispatchItemsTotal}</span>
                     <span>{dispatchProgressValue}%</span>
                   </div>
                 </div>
                 {dispatchError && (
-                  <p className="mt-2 text-sm text-red-700">{dispatchError}</p>
+                  <p className="mt-2 text-sm text-brand-alert">{dispatchError}</p>
                 )}
               </div>
             )}
@@ -2057,47 +2077,47 @@ export function CreateTourCode() {
 
             {matchedEditor && (
               <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
-                <div className="w-full max-w-lg rounded-xl border border-[#E5DDD0] bg-white p-5 shadow-2xl">
-                  <h4 className="text-[#2B2318] font-medium mb-4">Редактирование совпадения</h4>
+                <div className="w-full max-w-lg rounded-xl border border-brand-line bg-white p-5 shadow-2xl">
+                  <h4 className="text-brand-ink font-medium mb-4">Редактирование совпадения</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <label className="block mb-1 text-sm text-[#2B2318]">Фамилия</label>
+                      <label className="block mb-1 text-sm text-brand-ink">Фамилия</label>
                       <Input
                         value={matchedEditor.draft.surname || ""}
                         onChange={(e) => updateMatchedEditorField("surname", e.target.value)}
-                        className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                        className="bg-white border-brand-line focus:border-brand-accent"
                       />
                     </div>
                     <div>
-                      <label className="block mb-1 text-sm text-[#2B2318]">Имя</label>
+                      <label className="block mb-1 text-sm text-brand-ink">Имя</label>
                       <Input
                         value={matchedEditor.draft.name || ""}
                         onChange={(e) => updateMatchedEditorField("name", e.target.value)}
-                        className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                        className="bg-white border-brand-line focus:border-brand-accent"
                       />
                     </div>
                     <div>
-                      <label className="block mb-1 text-sm text-[#2B2318]">Паспорт</label>
+                      <label className="block mb-1 text-sm text-brand-ink">Паспорт</label>
                       <Input
                         value={matchedEditor.draft.document || ""}
                         onChange={(e) => updateMatchedEditorField("document", e.target.value)}
-                        className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                        className="bg-white border-brand-line focus:border-brand-accent"
                       />
                     </div>
                     <div>
-                      <label className="block mb-1 text-sm text-[#2B2318]">Пакет</label>
+                      <label className="block mb-1 text-sm text-brand-ink">Пакет</label>
                       <Input
                         value={matchedEditor.draft.package_name || ""}
                         onChange={(e) => updateMatchedEditorField("package_name", e.target.value)}
-                        className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                        className="bg-white border-brand-line focus:border-brand-accent"
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block mb-1 text-sm text-[#2B2318]">Тур</label>
+                      <label className="block mb-1 text-sm text-brand-ink">Тур</label>
                       <Input
                         value={matchedEditor.draft.tour_name || ""}
                         onChange={(e) => updateMatchedEditorField("tour_name", e.target.value)}
-                        className="bg-white border-[#E5DDD0] focus:border-[#B8985F]"
+                        className="bg-white border-brand-line focus:border-brand-accent"
                       />
                     </div>
                   </div>
@@ -2106,7 +2126,7 @@ export function CreateTourCode() {
                     <div className="flex flex-wrap justify-center gap-2">
                       <Button
                         type="button"
-                        className="w-full sm:w-[210px] bg-gradient-to-r from-[#B96464] to-[#A95555] hover:from-[#A95555] hover:to-[#944848] text-white shadow-sm"
+                        className="w-full sm:w-[210px] bg-gradient-to-r from-brand-alert to-brand-alert-strong hover:from-brand-alert-strong hover:to-brand-alert-strong text-white shadow-sm"
                         onClick={deleteMatchedEditorRow}
                       >
                         Удалить запись
@@ -2124,7 +2144,7 @@ export function CreateTourCode() {
                         <Button
                           type="button"
                           variant="outline"
-                          className="w-full sm:w-[300px] border-[#D8CCB8] bg-[#FCF8F2] text-[#6B5435] hover:bg-[#F2E9DB]"
+                          className="w-full sm:w-[300px] border-brand-line-strong bg-brand-card text-brand-text hover:bg-brand-cream-2"
                           onClick={returnMatchedToSource}
                         >
                           Вернуть в предыдущую таблицу
@@ -2133,7 +2153,7 @@ export function CreateTourCode() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="w-full sm:w-[210px] border-[#D8CCB8] bg-white text-[#6B5435] hover:bg-[#F5F1EA]"
+                        className="w-full sm:w-[210px] border-brand-line-strong bg-white text-brand-text hover:bg-brand-cream"
                         onClick={() => setMatchedEditor(null)}
                       >
                         Отмена
@@ -2146,23 +2166,23 @@ export function CreateTourCode() {
 
             {pendingNonresidentIndex !== null && allMatched[pendingNonresidentIndex] && (
               <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
-                <div className="w-full max-w-md rounded-xl border border-[#E5DDD0] bg-white p-5 shadow-2xl">
-                  <h4 className="text-[#2B2318] font-medium">Подтвердите статус</h4>
-                  <p className="mt-3 text-sm text-[#6B5435]">
+                <div className="w-full max-w-md rounded-xl border border-brand-line bg-white p-5 shadow-2xl">
+                  <h4 className="text-brand-ink font-medium">Подтвердите статус</h4>
+                  <p className="mt-3 text-sm text-brand-text">
                     Точно отметить {allMatched[pendingNonresidentIndex].surname} {allMatched[pendingNonresidentIndex].name} как нерезидента? Этот статус будет передан в Камкор.
                   </p>
                   <div className="mt-5 flex justify-end gap-2">
                     <Button
                       type="button"
                       variant="outline"
-                      className="border-[#D8CCB8] text-[#6B5435]"
+                      className="border-brand-line-strong text-brand-text"
                       onClick={() => setPendingNonresidentIndex(null)}
                     >
                       Нет, отмена
                     </Button>
                     <Button
                       type="button"
-                      className="bg-[#B8985F] text-white hover:bg-[#A88952]"
+                      className="bg-brand-accent text-white hover:bg-brand-accent-hover"
                       onClick={confirmNonresident}
                     >
                       Да, отметить
@@ -2181,39 +2201,39 @@ export function CreateTourCode() {
     {isCreateTourOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-          <h4 className="text-[#2B2318] font-medium text-lg mb-5">Создать тур вручную</h4>
+          <h4 className="text-brand-ink font-medium text-lg mb-5">Создать тур вручную</h4>
 
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block mb-1 text-sm text-[#2B2318]">Дата начала</label>
+                <label className="block mb-1 text-sm text-brand-ink">Дата начала</label>
                 <Input
                   type="text"
                   placeholder="ДД.ММ.ГГГГ"
                   value={manualTourForm.date_start}
                   onChange={(e) => setManualTourForm((f) => ({ ...f, date_start: e.target.value }))}
-                  className="bg-white/40 border-white/60 focus:border-[#B8985F]"
+                  className="bg-white/40 border-white/60 focus:border-brand-accent"
                 />
               </div>
               <div>
-                <label className="block mb-1 text-sm text-[#2B2318]">Дата окончания</label>
+                <label className="block mb-1 text-sm text-brand-ink">Дата окончания</label>
                 <Input
                   type="text"
                   placeholder="ДД.ММ.ГГГГ"
                   value={manualTourForm.date_end}
                   onChange={(e) => setManualTourForm((f) => ({ ...f, date_end: e.target.value }))}
-                  className="bg-white/40 border-white/60 focus:border-[#B8985F]"
+                  className="bg-white/40 border-white/60 focus:border-brand-accent"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block mb-1 text-sm text-[#2B2318]">Маршрут</label>
+              <label className="block mb-1 text-sm text-brand-ink">Маршрут</label>
               <Select
                 value={manualTourForm.route}
                 onValueChange={(v) => setManualTourForm((f) => ({ ...f, route: v }))}
               >
-                <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
+                <SelectTrigger className="bg-white/40 border-white/60 focus:border-brand-accent">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2225,12 +2245,12 @@ export function CreateTourCode() {
             </div>
 
             <div>
-              <label className="block mb-1 text-sm text-[#2B2318]">Страна</label>
+              <label className="block mb-1 text-sm text-brand-ink">Страна</label>
               <Select
                 value={manualTourForm.country}
                 onValueChange={(v) => setManualTourForm((f) => ({ ...f, country: v }))}
               >
-                <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
+                <SelectTrigger className="bg-white/40 border-white/60 focus:border-brand-accent">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2242,12 +2262,12 @@ export function CreateTourCode() {
             </div>
 
             <div>
-              <label className="block mb-1 text-sm text-[#2B2318]">Отель</label>
+              <label className="block mb-1 text-sm text-brand-ink">Отель</label>
               <Select
                 value={manualTourForm.hotel}
                 onValueChange={(hotel) => setManualTourForm((f) => ({ ...f, hotel }))}
               >
-                <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
+                <SelectTrigger className="bg-white/40 border-white/60 focus:border-brand-accent">
                   <SelectValue placeholder="Выберите отель" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2259,12 +2279,12 @@ export function CreateTourCode() {
             </div>
 
             <div>
-              <label className="block mb-1 text-sm text-[#2B2318]">Авиалиния</label>
+              <label className="block mb-1 text-sm text-brand-ink">Авиалиния</label>
               <Select
                 value={manualTourForm.airlines}
                 onValueChange={(value) => setManualTourForm((f) => ({ ...f, airlines: value }))}
               >
-                <SelectTrigger className="bg-white/40 border-white/60 focus:border-[#B8985F]">
+                <SelectTrigger className="bg-white/40 border-white/60 focus:border-brand-accent">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2281,13 +2301,13 @@ export function CreateTourCode() {
           <div className="flex gap-3 mt-6">
             <Button
               variant="outline"
-              className="flex-1 border-[#D8CCB8] text-[#6B5435]"
+              className="flex-1 border-brand-line-strong text-brand-text"
               onClick={() => setIsCreateTourOpen(false)}
             >
               Отмена
             </Button>
             <Button
-              className="flex-1 bg-gradient-to-r from-[#B8985F] to-[#A88952] hover:from-[#A88952] hover:to-[#8B6F47] text-white"
+              className="flex-1 bg-gradient-to-r from-brand-accent to-brand-accent-hover hover:from-brand-accent-hover hover:to-brand-muted text-white"
               onClick={handleCreateTourManual}
               disabled={!manualTourForm.date_start || !manualTourForm.date_end}
             >

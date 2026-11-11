@@ -30,9 +30,9 @@ def _enum_type(enum_cls, db_type_name: str) -> SAEnum:
     )
 
 class UserRole(str, enum.Enum):
-    ADMIN = "ADMIN"
-    MANAGER = "MANAGER"
-    OPERATOR = "OPERATOR"
+    ADMIN = "admin"      # всё + управление пользователями
+    EDITOR = "editor"    # редактирование
+    VIEWER = "viewer"    # только просмотр
 
 
 class TourStatus(str, enum.Enum):
@@ -61,10 +61,16 @@ class User(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     email = Column(String(255), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
-    full_name = Column(String(255), nullable=False)
-    role = Column(_enum_type(UserRole, "userrole"), nullable=False, default=UserRole.OPERATOR)
+    # Пусто, пока приглашённый не задал пароль по ссылке.
+    password_hash = Column(String(255), nullable=True)
+    full_name = Column(String(255), nullable=True)
+    # Строкой, а не native enum: в schema.sql и модели были разные enum-типы.
+    role = Column(String(20), nullable=False, default=UserRole.VIEWER.value)
     is_active = Column(Boolean, default=True)
+
+    # Ссылка-приглашение: храним только sha256 от токена.
+    invite_token_hash = Column(String(64), nullable=True, index=True)
+    invite_expires_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -313,4 +319,5 @@ class AdminAuditLog(Base):
     action = Column(String(20), nullable=False)                       # create/update/delete/restore
     before = Column(JSON, nullable=True)
     after = Column(JSON, nullable=True)
+    user_email = Column(String(255), nullable=True)                   # кто изменил
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

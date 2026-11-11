@@ -6,13 +6,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.database import get_db
 from app.main import app
 from app.services.dispatch_auth import DispatchAuthError
 from app.services.kamkor_reference import KamkorDictionaries, KamkorUnavailable, bin_is_valid, verify
 from app.services.partner_payload_builder import build_partner_payload
-from db.models import Base, RefTouragent
+from db.models import Base, RefTouragent, User
 from db.seed_reference import seed_reference_data
 
 
@@ -58,6 +59,7 @@ class SettingsApiTests(unittest.TestCase):
                 db.close()
 
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = lambda: User(id="test-admin", email="admin@test", role="admin")
         self.patches = [
             mock.patch.object(KamkorDictionaries, "_session", return_value=None),
             mock.patch.object(KamkorDictionaries, "lookup", fake_lookup),
