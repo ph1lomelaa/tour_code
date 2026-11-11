@@ -21,6 +21,8 @@
   --brand-accent-200: #cdbbaa;
   --brand-gold: #c5a052;         /* мелкие золотые акценты */
   --brand-gold-light: #d8b865;
+  --brand-mocha: #9a7d62;        /* панель на странице входа */
+  --brand-mocha-2: #7c624d;
   /* Ошибки и удаление — кофейный вместо красного */
   --brand-alert: #6b4226;
   --brand-alert-strong: #4e2f1a;
@@ -128,6 +130,8 @@
   --color-brand-accent-200: var(--brand-accent-200);
   --color-brand-gold: var(--brand-gold);
   --color-brand-gold-light: var(--brand-gold-light);
+  --color-brand-mocha: var(--brand-mocha);
+  --color-brand-mocha-2: var(--brand-mocha-2);
   --color-brand-alert: var(--brand-alert);
   --color-brand-alert-strong: var(--brand-alert-strong);
   --color-brand-alert-soft: var(--brand-alert-soft);

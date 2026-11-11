@@ -6,23 +6,20 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
   return (
     <div className="flex min-h-screen bg-brand-cream">
       {/* Слева — арабские геометрические узоры */}
-      <div className="relative hidden lg:flex w-[46%] flex-col overflow-hidden bg-gradient-to-b from-brand-ink to-brand-ink-2 px-12 pt-12 pb-8">
-        <StarPattern className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.42]" />
-        {/* затемнение под текстом сверху и снизу, узор проступает в середине */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-brand-ink via-brand-ink/20 to-brand-ink/90" />
+      <div className="relative hidden lg:flex w-[46%] flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-brand-mocha to-brand-mocha-2 px-12 text-center">
+        <StarPattern color="#f6ebdd" className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.22]" />
+        {/* мягкое пятно под текстом, чтобы читалось */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_45%_32%_at_center,var(--brand-mocha-2)_0%,transparent_100%)] opacity-80" />
 
-        <div className="relative">
-          <div className="mb-8">
-            <p className="font-serif text-2xl tracking-[0.2em] text-white">HICKMET</p>
-            <p className="text-xs tracking-[0.3em] text-brand-gold-light">PREMIUM</p>
-          </div>
+        <div className="relative max-w-md">
+          <p className="font-serif text-3xl tracking-[0.25em] text-white">HICKMET</p>
+          <p className="mt-1 text-xs tracking-[0.35em] text-[#f3dfa8]">PREMIUM</p>
+          <div className="mx-auto my-8 h-px w-20 bg-[#f3dfa8]/80" />
           <h2 className="font-serif text-4xl leading-tight text-white">Система управления<br />тур-кодами</h2>
-          <p className="mt-3 max-w-sm text-sm text-brand-sand/80">Тур-коды, пакеты и паломники — в одном месте.</p>
+          <p className="mt-4 text-sm text-white/85">Тур-коды, пакеты и паломники — в одном месте.</p>
         </div>
 
-        <div className="flex-1" />
-
-        <div className="relative mt-6 flex items-end justify-between text-xs text-brand-sand/60">
+        <div className="absolute inset-x-12 bottom-8 flex items-end justify-between text-xs text-white/75">
           <p>Доступ только для сотрудников по приглашению</p>
           <p>© 2026 Hickmet Premium</p>
         </div>
