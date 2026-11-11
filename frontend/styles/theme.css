@@ -5,7 +5,7 @@
      Меняя значения здесь, меняем цвета во всём приложении. */
   --brand-ink: #231912;          /* тёмный: сайдбар, заголовки */
   --brand-ink-2: #31261d;        /* второй тон сайдбара */
-  --brand-line-dark: #463a2f;    /* рамки/hover на тёмном */
+  --brand-line-dark: #8a6f57;    /* рамки/hover на тёмном */
   --brand-sand: #e3d7c9;         /* текст на тёмном */
   --brand-text: #5b4d41;         /* основной текст */
   --brand-muted: #7a6a5c;        /* приглушённый текст */
@@ -15,8 +15,8 @@
   --brand-cream: #f6f0e8;        /* фон страницы */
   --brand-cream-2: #ede3d7;      /* вторичный фон */
   --brand-card: #fffdfa;         /* карточки */
-  --brand-accent: #4b3c30;       /* тёмно-коричневый: кнопки */
-  --brand-accent-hover: #2b2018;
+  --brand-accent: #7c624d;       /* карамельно-коричневый: кнопки */
+  --brand-accent-hover: #67503e;
   --brand-accent-soft: #ede3d7;
   --brand-accent-200: #cdbbaa;
   --brand-gold: #c5a052;         /* мелкие золотые акценты */
@@ -56,13 +56,13 @@
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --ring: var(--brand-accent);
-  --chart-1: #4b3c30;
+  --chart-1: #7c624d;
   --chart-2: #c9a24b;
   --chart-3: #1f632f;
   --chart-4: #5e5044;
   --chart-5: #a88952;
   --radius: 0.625rem;
-  --sidebar: var(--brand-ink);
+  --sidebar: var(--brand-mocha);
   --sidebar-foreground: var(--brand-sand);
   --sidebar-primary: var(--brand-accent);
   --sidebar-primary-foreground: #ffffff;

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "./ui/sheet";
 import { Button } from "./ui/button";
 import { useAuth } from "../context/AuthContext";
+import { StarPattern } from "./Ornament";
 import { ROLE_LABELS } from "../../src/lib/api/auth";
 
 export function Layout() {
@@ -58,11 +59,11 @@ export function Layout() {
       {/* Logo - now clickable to go home */}
       <Link
         to="/"
-        className="p-8 border-b border-brand-line-dark hover:bg-brand-line-dark/30 transition-colors"
+        className="p-8 border-b border-white/15 hover:bg-white/10 transition-colors"
         onClick={() => setMobileMenuOpen(false)}
       >
-        <h1 className="text-xl tracking-[0.2em] mb-1 text-brand-sand">HICKMET</h1>
-        <p className="text-xs tracking-[0.3em] text-brand-gold">PREMIUM</p>
+        <h1 className="text-xl tracking-[0.2em] mb-1 text-white">HICKMET</h1>
+        <p className="text-xs tracking-[0.3em] text-[#f3dfa8]">PREMIUM</p>
       </Link>
 
       {/* Menu */}
@@ -78,7 +79,7 @@ export function Layout() {
                 ${
                   location.pathname === "/"
                     ? "bg-brand-cream text-brand-ink shadow-lg"
-                    : "hover:bg-brand-line-dark text-brand-sand"
+                    : "hover:bg-white/10 text-white"
                 }
               `}
             >
@@ -101,7 +102,7 @@ export function Layout() {
                     ${
                       isActive
                         ? "bg-brand-cream text-brand-ink shadow-lg"
-                        : "hover:bg-brand-line-dark text-brand-sand"
+                        : "hover:bg-white/10 text-white"
                     }
                   `}
                 >
@@ -115,24 +116,24 @@ export function Layout() {
       </nav>
 
       {/* Footer: текущий пользователь */}
-      <div className="p-6 border-t border-brand-line-dark">
+      <div className="p-6 border-t border-white/15">
         {user && (
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-sm text-brand-sand">{user.full_name || user.email}</p>
-              <p className="text-xs text-brand-gold">{ROLE_LABELS[user.role]}</p>
+              <p className="truncate text-sm text-white">{user.full_name || user.email}</p>
+              <p className="text-xs text-[#f3dfa8]">{ROLE_LABELS[user.role]}</p>
             </div>
             <button
               type="button"
               onClick={handleLogout}
               title="Выйти"
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-brand-sand hover:bg-brand-line-dark transition-colors"
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-white hover:bg-white/10 transition-colors"
             >
               <LogOut className="w-4 h-4" /> Выйти
             </button>
           </div>
         )}
-        <p className="text-xs text-brand-muted text-center">
+        <p className="text-xs text-white/60 text-center">
           © 2026 Hickmet Premium
         </p>
       </div>
@@ -142,26 +143,29 @@ export function Layout() {
   return (
     <div className="flex h-screen bg-brand-cream">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-80 bg-gradient-to-b from-brand-ink to-brand-ink-2 text-brand-cream flex-col">
-        <SidebarContent />
+      <aside className="relative hidden md:flex w-80 overflow-hidden bg-gradient-to-b from-brand-mocha to-brand-mocha-2 text-brand-cream">
+        <StarPattern color="#f6ebdd" className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.12]" />
+        <div className="relative flex w-full flex-col">
+          <SidebarContent />
+        </div>
       </aside>
 
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-gradient-to-r from-brand-ink to-brand-ink-2 text-brand-cream px-4 py-4 shadow-lg">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-gradient-to-r from-brand-mocha to-brand-mocha-2 text-brand-cream px-4 py-4 shadow-lg">
         <div className="flex items-center justify-between">
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-brand-sand hover:bg-brand-line-dark"
+                className="text-white hover:bg-white/10"
               >
                 <Menu className="w-6 h-6" />
               </Button>
             </SheetTrigger>
             <SheetContent
               side="left"
-              className="w-80 p-0 bg-gradient-to-b from-brand-ink to-brand-ink-2 text-brand-cream border-brand-line-dark"
+              className="w-80 p-0 bg-gradient-to-b from-brand-mocha to-brand-mocha-2 text-brand-cream border-white/15"
             >
               <SheetTitle className="sr-only">Меню навигации</SheetTitle>
               <SheetDescription className="sr-only">
@@ -174,8 +178,8 @@ export function Layout() {
           </Sheet>
 
           <Link to="/" className="flex flex-col items-center">
-            <h1 className="text-base tracking-[0.2em] text-brand-sand">HICKMET</h1>
-            <p className="text-[10px] tracking-[0.3em] text-brand-gold">PREMIUM</p>
+            <h1 className="text-base tracking-[0.2em] text-white">HICKMET</h1>
+            <p className="text-[10px] tracking-[0.3em] text-[#f3dfa8]">PREMIUM</p>
           </Link>
 
           <div className="w-10" /> {/* Spacer for centering */}
