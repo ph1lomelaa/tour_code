@@ -1,28 +1,28 @@
 import type { ReactNode } from "react";
-import { KaabaArt } from "./KaabaArt";
+import { KaabaArt, StarPattern } from "./KaabaArt";
 
 /** Общая рамка для страниц входа и приглашения. */
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-brand-cream">
       {/* Слева — иллюстрация с Каабой */}
-      <div className="relative hidden lg:flex w-[48%] flex-col justify-between overflow-hidden bg-brand-ink p-12">
-        <KaabaArt className="absolute inset-0 h-full w-full" />
-        <div className="absolute inset-0 bg-gradient-to-b from-brand-ink/40 via-transparent to-brand-ink/60" />
+      <div className="relative hidden lg:flex w-[46%] flex-col overflow-hidden bg-gradient-to-b from-brand-ink to-brand-ink-2 px-12 pt-12 pb-8">
+        <StarPattern className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.09]" />
 
         <div className="relative">
-          <div className="mb-10">
+          <div className="mb-8">
             <p className="font-serif text-2xl tracking-[0.2em] text-white">HICKMET</p>
             <p className="text-xs tracking-[0.3em] text-brand-gold-light">PREMIUM</p>
           </div>
-          <div className="mb-5 h-px w-16 bg-brand-gold-light" />
           <h2 className="font-serif text-4xl leading-tight text-white">Система управления<br />тур-кодами</h2>
-          <p className="mt-3 max-w-sm text-sm text-white/80">
-            Тур-коды, пакеты и паломники — в одном месте.
-          </p>
+          <p className="mt-3 max-w-sm text-sm text-brand-sand/80">Тур-коды, пакеты и паломники — в одном месте.</p>
         </div>
 
-        <div className="relative flex items-end justify-between text-xs text-white/75">
+        <div className="relative mt-6 min-h-0 flex-1">
+          <KaabaArt className="absolute inset-0 h-full w-full" />
+        </div>
+
+        <div className="relative mt-6 flex items-end justify-between text-xs text-brand-sand/60">
           <p>Доступ только для сотрудников по приглашению</p>
           <p>© 2026 Hickmet Premium</p>
         </div>
