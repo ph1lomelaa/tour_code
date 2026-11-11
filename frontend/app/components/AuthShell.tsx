@@ -1,13 +1,15 @@
 import type { ReactNode } from "react";
-import { KaabaArt, StarPattern } from "./KaabaArt";
+import { StarPattern } from "./Ornament";
 
 /** Общая рамка для страниц входа и приглашения. */
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-brand-cream">
-      {/* Слева — иллюстрация с Каабой */}
+      {/* Слева — арабские геометрические узоры */}
       <div className="relative hidden lg:flex w-[46%] flex-col overflow-hidden bg-gradient-to-b from-brand-ink to-brand-ink-2 px-12 pt-12 pb-8">
-        <StarPattern className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.09]" />
+        <StarPattern className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.42]" />
+        {/* затемнение под текстом сверху и снизу, узор проступает в середине */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-brand-ink via-brand-ink/20 to-brand-ink/90" />
 
         <div className="relative">
           <div className="mb-8">
@@ -18,9 +20,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
           <p className="mt-3 max-w-sm text-sm text-brand-sand/80">Тур-коды, пакеты и паломники — в одном месте.</p>
         </div>
 
-        <div className="relative mt-6 min-h-0 flex-1">
-          <KaabaArt className="absolute inset-0 h-full w-full" />
-        </div>
+        <div className="flex-1" />
 
         <div className="relative mt-6 flex items-end justify-between text-xs text-brand-sand/60">
           <p>Доступ только для сотрудников по приглашению</p>
