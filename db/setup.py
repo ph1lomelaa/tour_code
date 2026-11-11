@@ -88,6 +88,8 @@ def _migrate_users(inspector) -> None:
     with engine.begin() as conn:
         if "invite_token_hash" not in columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN invite_token_hash VARCHAR(64)"))
+        if "invite_token" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN invite_token VARCHAR(64)"))
         if "invite_expires_at" not in columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN invite_expires_at TIMESTAMP"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_users_invite_token_hash ON users (invite_token_hash)"))

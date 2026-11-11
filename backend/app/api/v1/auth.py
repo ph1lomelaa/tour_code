@@ -87,6 +87,7 @@ def accept_invite(token: str, body: AcceptInviteIn, db: Session = Depends(get_db
     user.full_name = body.full_name.strip()
     user.password_hash = hash_password(body.password)
     user.invite_token_hash = None
+    user.invite_token = None
     user.invite_expires_at = None
     user.last_login_at = datetime.utcnow()
     db.commit()

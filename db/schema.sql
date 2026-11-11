@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
     role            VARCHAR(20) NOT NULL DEFAULT 'viewer',  -- admin / editor / viewer
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
     invite_token_hash VARCHAR(64),
+    invite_token    VARCHAR(64),
     invite_expires_at TIMESTAMP,
     created_at      TIMESTAMP NOT NULL DEFAULT now(),
     updated_at      TIMESTAMP NOT NULL DEFAULT now(),

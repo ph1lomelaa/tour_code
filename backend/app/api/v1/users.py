@@ -43,8 +43,16 @@ def _get(db: Session, user_id: str) -> User:
 def _issue_invite(user: User) -> str:
     token, token_hash, expires = new_invite_token()
     user.invite_token_hash = token_hash
+    user.invite_token = token
     user.invite_expires_at = expires
     return token
+
+
+def admin_user_out(user: User) -> dict:
+    """Для админа — ещё и действующая ссылка-приглашение (чтобы скопировать снова)."""
+    data = user_out(user)
+    data["invite_token"] = user.invite_token if user.is_active else None
+    return data
 
 
 def _other_active_admins(db: Session, user: User) -> int:
@@ -58,7 +66,7 @@ def _other_active_admins(db: Session, user: User) -> int:
 @router.get("")
 def list_users(db: Session = Depends(get_db), _admin: User = Depends(require_admin)):
     users = db.query(User).order_by(User.created_at.asc()).all()
-    return {"items": [user_out(u) for u in users]}
+    return {"items": [admin_user_out(u) for u in users]}
 
 
 @router.post("")
@@ -71,7 +79,7 @@ def create_user(body: UserCreate, db: Session = Depends(get_db), _admin: User = 
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {"user": user_out(user), "invite_token": token}
+    return {"user": admin_user_out(user), "invite_token": token}
 
 
 @router.patch("/{user_id}")
@@ -89,7 +97,7 @@ def update_user(
     if body.is_active is not None:
         user.is_active = body.is_active
     db.commit()
-    return user_out(user)
+    return admin_user_out(user)
 
 
 @router.post("/{user_id}/invite")
@@ -101,7 +109,7 @@ def regenerate_invite(user_id: str, db: Session = Depends(get_db), admin: User =
     token = _issue_invite(user)
     user.is_active = True
     db.commit()
-    return {"user": user_out(user), "invite_token": token}
+    return {"user": admin_user_out(user), "invite_token": token}
 
 
 @router.delete("/{user_id}")
@@ -115,6 +123,7 @@ def delete_user(user_id: str, db: Session = Depends(get_db), admin: User = Depen
         # У пользователя есть туры — отключаем, чтобы не ломать историю.
         user.is_active = False
         user.invite_token_hash = None
+        user.invite_token = None
         db.commit()
         return {"ok": True, "disabled": True}
     db.delete(user)

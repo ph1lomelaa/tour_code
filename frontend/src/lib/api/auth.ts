@@ -14,6 +14,8 @@ export interface AppUser {
   status: UserStatus;
   last_login_at: string | null;
   created_at: string | null;
+  /** Только в списке для админа: действующая ссылка-приглашение. */
+  invite_token?: string | null;
 }
 
 export interface AuthSession {

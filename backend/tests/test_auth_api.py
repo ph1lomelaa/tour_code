@@ -71,7 +71,9 @@ class AuthApiTests(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         viewer = {"Authorization": f"Bearer {r.json()['access_token']}"}
 
-        # Ссылка одноразовая.
+        # Ссылка одноразовая; после регистрации админ её больше не видит.
+        listed = {u["email"]: u for u in self.client.get("/api/v1/users", headers=admin).json()["items"]}
+        self.assertIsNone(listed["viewer@test.kz"]["invite_token"])
         self.assertEqual(self.client.get(f"/api/v1/auth/invite/{token}").status_code, 404)
 
         self.assertEqual(self.client.get("/api/v1/settings/reference", headers=viewer).status_code, 200)
@@ -100,6 +102,13 @@ class AuthApiTests(unittest.TestCase):
         created = self._invite(admin, "later@test.kz", "viewer")
         with self.Session() as db:
             self.assertIsNone(db.get(User, created["user"]["id"]).invite_expires_at)
+
+    def test_invite_link_can_be_copied_again(self):
+        admin = self._login("admin@test.kz", "adminpass1")
+        created = self._invite(admin, "again@test.kz", "viewer")
+        listed = {u["email"]: u for u in self.client.get("/api/v1/users", headers=admin).json()["items"]}
+        self.assertEqual(listed["again@test.kz"]["invite_token"], created["invite_token"])
+        self.assertEqual(self.client.get(f"/api/v1/auth/invite/{created['invite_token']}").status_code, 200)
 
     def test_new_link_invalidates_old_one(self):
         admin = self._login("admin@test.kz", "adminpass1")

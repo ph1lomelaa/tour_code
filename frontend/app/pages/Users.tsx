@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Copy, Link2, Loader2, Plus, Power, Trash2, UserPlus } from "lucide-react";
+import { Copy, Loader2, Plus, Power, RefreshCw, Trash2, UserPlus } from "lucide-react";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
@@ -39,13 +39,46 @@ const STATUS: Record<AppUser["status"], { label: string; tone: string }> = {
 const formatDate = (value: string | null) =>
   value ? new Date(value + (value.endsWith("Z") ? "" : "Z")).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" }) : "—";
 
-async function copy(text: string) {
+/** Копирование, которое работает и на http (без https), где navigator.clipboard недоступен. */
+function copyFallback(text: string): boolean {
+  // Кладём текст в буфер прямо в событии copy — не зависит от выделения и фокуса.
+  const onCopy = (e: ClipboardEvent) => {
+    e.clipboardData?.setData("text/plain", text);
+    e.preventDefault();
+  };
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.top = "-1000px";
+  document.body.appendChild(area);
+  area.focus();
+  area.select();
+  document.addEventListener("copy", onCopy);
+  let ok = false;
   try {
-    await navigator.clipboard.writeText(text);
-    toast.success("Ссылка скопирована");
+    ok = document.execCommand("copy");
   } catch {
-    toast.error("Не удалось скопировать — выделите ссылку вручную");
+    ok = false;
   }
+  document.removeEventListener("copy", onCopy);
+  document.body.removeChild(area);
+  return ok;
+}
+
+async function copy(text: string) {
+  let ok = false;
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch {
+      ok = false;
+    }
+  }
+  if (!ok) ok = copyFallback(text);
+  if (ok) toast.success("Ссылка скопирована");
+  else toast.error("Не удалось скопировать — выделите ссылку вручную");
 }
 
 function LinkBox({ link }: { link: string }) {
@@ -73,6 +106,7 @@ export function Users() {
   const [busy, setBusy] = useState(false);
   const [link, setLink] = useState<{ email: string; url: string } | null>(null);
   const [toDelete, setToDelete] = useState<AppUser | null>(null);
+  const [toRegenerate, setToRegenerate] = useState<AppUser | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -124,6 +158,7 @@ export function Users() {
   };
 
   const newLink = async (u: AppUser) => {
+    setToRegenerate(null);
     try {
       const res = await regenerateInvite(u.id);
       replace(res.user);
@@ -201,8 +236,13 @@ export function Users() {
                       <TableCell>
                         {!isMe && (
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="sm" title="Новая ссылка (приглашение / сброс пароля)" onClick={() => newLink(u)}>
-                              <Link2 className="h-4 w-4" />
+                            {u.invite_token && (
+                              <Button variant="ghost" size="sm" title="Скопировать ссылку" onClick={() => copy(inviteLink(u.invite_token!))}>
+                                <Copy className="h-4 w-4" /> <span className="hidden xl:inline">Ссылка</span>
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="sm" title="Новая ссылка (если старая потерялась или нужно сбросить пароль)" onClick={() => setToRegenerate(u)}>
+                              <RefreshCw className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="sm" title={u.status === "disabled" ? "Включить" : "Отключить"} onClick={() => toggleActive(u)}>
                               <Power className={`h-4 w-4 ${u.status === "disabled" ? "text-emerald-600" : ""}`} />
@@ -268,11 +308,27 @@ export function Users() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Ссылка для {link?.email}</DialogTitle>
-            <DialogDescription>Прежние ссылки этого пользователя больше не работают.</DialogDescription>
+            <DialogDescription>Ссылку можно скопировать ещё раз в любой момент — кнопкой «Ссылка» в списке.</DialogDescription>
           </DialogHeader>
           {link && <LinkBox link={link.url} />}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={toRegenerate !== null} onOpenChange={(open) => !open && setToRegenerate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Новая ссылка для {toRegenerate?.email}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Старая ссылка перестанет работать. Нужно, если ссылка потерялась или человек забыл пароль.
+              Чтобы просто отправить ту же ссылку ещё раз, нажмите «Ссылка».
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <Button className={PRIMARY} onClick={() => toRegenerate && newLink(toRegenerate)}>Создать новую</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={toDelete !== null} onOpenChange={(open) => !open && setToDelete(null)}>
         <AlertDialogContent>

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "./ui/sheet";
 import { Button } from "./ui/button";
 import { useAuth } from "../context/AuthContext";
-import { StarPattern } from "./Ornament";
 import { ROLE_LABELS } from "../../src/lib/api/auth";
 
 export function Layout() {
@@ -144,7 +143,6 @@ export function Layout() {
     <div className="flex h-screen bg-brand-cream">
       {/* Desktop Sidebar */}
       <aside className="relative hidden md:flex w-80 overflow-hidden bg-gradient-to-b from-brand-mocha to-brand-mocha-2 text-brand-cream">
-        <StarPattern color="#f6ebdd" className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.12]" />
         <div className="relative flex w-full flex-col">
           <SidebarContent />
         </div>

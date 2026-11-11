@@ -68,8 +68,10 @@ class User(Base):
     role = Column(String(20), nullable=False, default=UserRole.VIEWER.value)
     is_active = Column(Boolean, default=True)
 
-    # Ссылка-приглашение: храним только sha256 от токена.
+    # Ссылка-приглашение: поиск по sha256, сам токен — чтобы админ мог
+    # скопировать ту же ссылку ещё раз, пока человек не зарегистрировался.
     invite_token_hash = Column(String(64), nullable=True, index=True)
+    invite_token = Column(String(64), nullable=True)
     invite_expires_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
