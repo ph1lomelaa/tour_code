@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Copy, Loader2, Plus, Power, RefreshCw, Trash2, UserPlus } from "lucide-react";
+import { Check, Copy, Loader2, Plus, Power, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
@@ -16,7 +16,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { ROLE_LABELS, type AppUser, type UserRole } from "../../src/lib/api/auth";
 import {
-  createUser, deleteUser, inviteLink, listUsers, regenerateInvite, updateUser,
+  approveUser, createUser, deleteUser, inviteLink, listUsers, regenerateInvite, updateUser,
 } from "../../src/lib/api/users";
 import { errorDetail } from "../../src/lib/api/settings";
 
@@ -31,6 +31,7 @@ const ROLE_HINTS: Record<UserRole, string> = {
 };
 
 const STATUS: Record<AppUser["status"], { label: string; tone: string }> = {
+  pending: { label: "Заявка", tone: "bg-amber-50 text-amber-800 border-amber-200" },
   invited: { label: "Приглашён", tone: "bg-brand-accent-soft text-brand-accent border-brand-accent-200" },
   active: { label: "Активен", tone: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   disabled: { label: "Отключён", tone: "bg-brand-cream-2 text-brand-muted border-brand-line-strong" },
@@ -107,6 +108,24 @@ export function Users() {
   const [link, setLink] = useState<{ email: string; url: string } | null>(null);
   const [toDelete, setToDelete] = useState<AppUser | null>(null);
   const [toRegenerate, setToRegenerate] = useState<AppUser | null>(null);
+  const [approveRoles, setApproveRoles] = useState<Record<string, UserRole>>({});
+  const [approving, setApproving] = useState<string | null>(null);
+
+  const requests = users?.filter((u) => u.status === "pending") ?? [];
+  const members = users?.filter((u) => u.status !== "pending") ?? null;
+
+  const approve = async (u: AppUser) => {
+    const nextRole = approveRoles[u.id] ?? "viewer";
+    setApproving(u.id);
+    try {
+      replace(await approveUser(u.id, nextRole));
+      toast.success(`${u.full_name || u.email}: доступ открыт (${ROLE_LABELS[nextRole]})`);
+    } catch (err) {
+      toast.error(errorDetail(err, "Не удалось принять заявку"));
+    } finally {
+      setApproving(null);
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -172,7 +191,11 @@ export function Users() {
     if (!toDelete) return;
     try {
       const res = await deleteUser(toDelete.id);
-      toast.success(res.disabled ? "У пользователя есть туры — он отключён, а не удалён" : "Удалено");
+      toast.success(
+        res.disabled
+          ? "У пользователя есть туры — он отключён, а не удалён"
+          : toDelete.status === "pending" ? "Заявка отклонена" : "Удалено",
+      );
       await load();
     } catch (err) {
       toast.error(errorDetail(err));
@@ -187,12 +210,47 @@ export function Users() {
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl mb-2 text-brand-ink">Пользователи</h1>
-            <p className="text-brand-text">Кто имеет доступ к системе. Новых сотрудников добавляйте по почте и отправляйте им ссылку.</p>
+            <p className="text-brand-text">Кто имеет доступ к системе. Сотрудники могут сами запросить доступ на странице входа — или добавьте их по почте и отправьте ссылку.</p>
           </div>
           <Button className={PRIMARY} onClick={() => setCreateOpen(true)}>
             <UserPlus className="h-4 w-4" /> Добавить пользователя
           </Button>
         </div>
+
+        {requests.length > 0 && (
+          <div className={`${CARD} mb-6 border-amber-200`}>
+            <div className="mb-4 flex items-center gap-2">
+              <h2 className="font-serif text-xl text-brand-ink">Заявки на доступ</h2>
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{requests.length}</span>
+            </div>
+            <div className="divide-y divide-brand-line">
+              {requests.map((u) => (
+                <div key={u.id} className="flex flex-wrap items-center gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-brand-ink">{u.full_name || "—"}</p>
+                    <p className="truncate text-sm text-brand-text">{u.email}</p>
+                    <p className="text-xs text-brand-muted">Заявка от {formatDate(u.created_at)}</p>
+                  </div>
+                  <Select
+                    value={approveRoles[u.id] ?? "viewer"}
+                    onValueChange={(v) => setApproveRoles((m) => ({ ...m, [u.id]: v as UserRole }))}
+                  >
+                    <SelectTrigger className="h-9 w-36 bg-brand-card"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button className={PRIMARY} size="sm" disabled={approving === u.id} onClick={() => approve(u)}>
+                    {approving === u.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Принять
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setToDelete(u)}>
+                    <X className="h-4 w-4 text-brand-alert" /> Отклонить
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className={CARD}>
           <div className="overflow-x-auto">
@@ -208,10 +266,10 @@ export function Users() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users === null && (
+                {members === null && (
                   <TableRow><TableCell colSpan={6} className="text-center"><Loader2 className="inline h-4 w-4 animate-spin" /></TableCell></TableRow>
                 )}
-                {users?.map((u) => {
+                {members?.map((u) => {
                   const isMe = u.id === me?.id;
                   const status = STATUS[u.status];
                   return (
@@ -333,12 +391,20 @@ export function Users() {
       <AlertDialog open={toDelete !== null} onOpenChange={(open) => !open && setToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить {toDelete?.email}?</AlertDialogTitle>
-            <AlertDialogDescription>Пользователь сразу потеряет доступ.</AlertDialogDescription>
+            <AlertDialogTitle>
+              {toDelete?.status === "pending" ? `Отклонить заявку ${toDelete?.email}?` : `Удалить ${toDelete?.email}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {toDelete?.status === "pending"
+                ? "Заявка будет удалена. Человек сможет отправить её снова."
+                : "Пользователь сразу потеряет доступ."}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <Button className="bg-brand-alert text-white hover:bg-brand-alert" onClick={confirmDelete}>Удалить</Button>
+            <Button className="bg-brand-alert text-white hover:bg-brand-alert" onClick={confirmDelete}>
+              {toDelete?.status === "pending" ? "Отклонить" : "Удалить"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

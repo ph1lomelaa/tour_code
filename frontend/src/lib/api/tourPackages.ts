@@ -25,6 +25,10 @@ export interface MatchedPilgrimRow {
   tour_code: string;
   tour_code_old?: string;
   resident_status?: 'резидент' | 'нерезидент';
+  /** Когда получен тур-код (ISO, UTC); пусто у старых записей. */
+  tour_code_created_at?: string;
+  /** Кто его создал. */
+  tour_code_created_by?: string;
 }
 
 export interface ComparePilgrimRow {

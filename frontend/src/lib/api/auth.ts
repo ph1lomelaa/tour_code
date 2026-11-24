@@ -4,7 +4,7 @@
 import { api } from './axios';
 
 export type UserRole = 'admin' | 'editor' | 'viewer';
-export type UserStatus = 'invited' | 'active' | 'disabled';
+export type UserStatus = 'pending' | 'invited' | 'active' | 'disabled';
 
 export interface AppUser {
   id: string;
@@ -32,6 +32,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   viewer: 'Просмотр',
 };
 
+/** email — почта или логин Камкора (для админа). */
 export const login = async (email: string, password: string): Promise<AuthSession> => {
   const response = await api.post<AuthSession>('/api/v1/auth/login', { email, password });
   return response.data;
@@ -57,4 +58,9 @@ export const acceptInvite = async (
     password,
   });
   return response.data;
+};
+
+/** Заявка на доступ: после одобрения админом человек входит по этой почте и паролю. */
+export const requestAccess = async (full_name: string, email: string, password: string): Promise<void> => {
+  await api.post('/api/v1/auth/request-access', { full_name, email, password });
 };

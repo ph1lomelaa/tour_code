@@ -67,6 +67,8 @@ class User(Base):
     # Строкой, а не native enum: в schema.sql и модели были разные enum-типы.
     role = Column(String(20), nullable=False, default=UserRole.VIEWER.value)
     is_active = Column(Boolean, default=True)
+    # False — человек сам оставил заявку на доступ и ждёт одобрения админа.
+    is_approved = Column(Boolean, nullable=False, default=True)
 
     # Ссылка-приглашение: поиск по sha256, сам токен — чтобы админ мог
     # скопировать ту же ссылку ещё раз, пока человек не зарегистрировался.
@@ -149,6 +151,9 @@ class Pilgrim(Base):
     resident_status = Column(String(20), nullable=False, default="резидент")  # c_resident_0
     tour_code = Column(String(64), nullable=True, index=True)         # q_number, "Tour code number"
     tour_code_old = Column(String(64), nullable=True)                 # q_short_number, "Tour code old number"
+    # Когда и кем получен тур-код. Имя строкой — не пропадёт, если пользователя удалят.
+    tour_code_created_at = Column(DateTime, nullable=True)
+    tour_code_created_by = Column(String(255), nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -211,6 +216,8 @@ class DispatchJob(Base):
 
     celery_task_id = Column(String(128), nullable=True, index=True)
     error_message = Column(Text, nullable=True)
+    # Кто запустил отправку (имя или почта).
+    created_by_name = Column(String(255), nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

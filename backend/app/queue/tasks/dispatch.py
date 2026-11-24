@@ -343,6 +343,7 @@ def _save_tour_code_for_item(
     item_meta: Dict[str, Any],
     tour_code: str,
     tour_code_old: str = "",
+    created_by: str | None = None,
 ) -> None:
     if not tour_code and not tour_code_old:
         return
@@ -361,6 +362,8 @@ def _save_tour_code_for_item(
         pilgrim.tour_code = tour_code
     if tour_code_old:
         pilgrim.tour_code_old = tour_code_old
+    pilgrim.tour_code_created_at = datetime.utcnow()
+    pilgrim.tour_code_created_by = created_by or None
 
 
 def _build_auth_headers() -> Dict[str, str]:
@@ -608,6 +611,7 @@ def process_dispatch_job(self, job_id: str) -> Dict[str, Any]:
                         item_meta=item_meta,
                         tour_code=tour_code,
                         tour_code_old=tour_code_old,
+                        created_by=job.created_by_name,
                     )
                 elif not save_request_succeeded:
                     failed_items += 1

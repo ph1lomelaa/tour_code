@@ -133,9 +133,9 @@ def _build_client_block(pilgrim: Dict[str, Any]) -> Dict[str, Any]:
     surname = str(pilgrim.get("surname") or "").strip().upper()
     name = str(pilgrim.get("name") or "").strip().upper()
 
-    # Партнёр режет фамилии < 4 символов (например, "LI") — в таких случаях
-    # шлём имя как фамилию, иначе заявка отклоняется.
-    nmeng = surname if len(surname) >= 4 else (name or surname)
+    # Партнёру шлём и фамилию, и имя ("SURNAME NAME"). Заодно это решает проблему
+    # коротких фамилий (< 4 символов, например "LI"), которые партнёр отклонял.
+    nmeng = " ".join(part for part in (surname, name) if part)
 
     return {
         "clientcounter": 0,

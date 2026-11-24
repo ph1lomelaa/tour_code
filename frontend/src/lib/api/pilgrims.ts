@@ -13,6 +13,10 @@ export interface PilgrimListItem {
   tour_route: string;
   date_start: string;
   date_end: string;
+  /** Когда получен тур-код (ISO, UTC); пусто у старых записей. */
+  tour_code_created_at?: string;
+  /** Кто его создал. */
+  tour_code_created_by?: string;
 }
 
 export interface PilgrimListResponse {

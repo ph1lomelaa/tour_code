@@ -134,6 +134,49 @@ class AuthApiTests(unittest.TestCase):
         emails = [u["email"] for u in self.client.get("/api/v1/users", headers=admin).json()["items"]]
         self.assertNotIn("gone@test.kz", emails)
 
+    def test_access_request_needs_admin_approval(self):
+        body = {"full_name": "Новенькая", "email": "New@Test.kz", "password": "newpass123"}
+        self.assertEqual(self.client.post("/api/v1/auth/request-access", json={**body, "password": "short"}).status_code, 422)
+        self.assertEqual(self.client.post("/api/v1/auth/request-access", json=body).status_code, 200)
+        self.assertEqual(self.client.post("/api/v1/auth/request-access", json=body).status_code, 409)
+
+        # До одобрения войти нельзя.
+        r = self.client.post("/api/v1/auth/login", json={"email": "new@test.kz", "password": "newpass123"})
+        self.assertEqual(r.status_code, 403)
+
+        admin = self._login("admin@test.kz", "adminpass1")
+        items = self.client.get("/api/v1/users", headers=admin).json()["items"]
+        self.assertEqual(items[0]["email"], "new@test.kz")  # заявки первыми
+        self.assertEqual(items[0]["status"], "pending")
+
+        r = self.client.post(f"/api/v1/users/{items[0]['id']}/approve", json={"role": "editor"}, headers=admin)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["status"], "active")
+        self.assertEqual(r.json()["role"], "editor")
+        me = self.client.get("/api/v1/auth/me", headers=self._login("new@test.kz", "newpass123")).json()
+        self.assertEqual(me["full_name"], "Новенькая")
+
+    def test_pending_user_token_is_rejected(self):
+        from app.core.security import create_access_token
+        with self.Session() as db:
+            u = User(email="wait@test.kz", role="viewer", is_approved=False, password_hash=hash_password("waitpass1"))
+            db.add(u)
+            db.commit()
+            uid = str(u.id)
+        headers = {"Authorization": f"Bearer {create_access_token(uid)}"}
+        self.assertEqual(self.client.get("/api/v1/auth/me", headers=headers).status_code, 401)
+
+    def test_admin_logs_in_with_kamkor_credentials(self):
+        from unittest import mock
+        from app.core.config import settings
+        with mock.patch.object(settings, "DISPATCH_AGENT_LOGIN", "Hikmet_trevel"), \
+                mock.patch.object(settings, "DISPATCH_AGENT_PASS", "kamkor-secret"):
+            r = self.client.post("/api/v1/auth/login", json={"email": "hikmet_TREVEL", "password": "kamkor-secret"})
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertEqual(r.json()["user"]["role"], "admin")
+            r = self.client.post("/api/v1/auth/login", json={"email": "Hikmet_trevel", "password": "wrong"})
+            self.assertEqual(r.status_code, 401)
+
 
 if __name__ == "__main__":
     unittest.main()

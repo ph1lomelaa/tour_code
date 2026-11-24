@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { Search } from "lucide-react";
+import { CreatedBy } from "../components/CreatedBy";
 import { getPilgrims, PilgrimListItem } from "../../src/lib/api/pilgrims";
 
 const PAGE_SIZE = 20;
@@ -148,7 +149,7 @@ export function Pilgrims() {
               <p>Загрузка...</p>
             </div>
           ) : pilgrims.length > 0 ? (
-            <div className="border border-brand-line rounded-lg overflow-hidden">
+            <div className="border border-brand-line rounded-lg overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-brand-cream hover:bg-brand-cream">
@@ -159,6 +160,7 @@ export function Pilgrims() {
                       Номер паспорта
                     </TableHead>
                     <TableHead className="text-brand-ink">Тур код</TableHead>
+                    <TableHead className="text-brand-ink">Создан</TableHead>
                     <TableHead className="text-brand-ink">Пакет</TableHead>
                     <TableHead className="text-brand-ink">Тур</TableHead>
                     <TableHead className="text-brand-ink">Маршрут</TableHead>
@@ -185,6 +187,9 @@ export function Pilgrims() {
                       </TableCell>
                       <TableCell className="text-brand-text">
                         {pilgrim.tour_code || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <CreatedBy at={pilgrim.tour_code_created_at} by={pilgrim.tour_code_created_by} />
                       </TableCell>
                       <TableCell className="text-brand-text">
                         {pilgrim.package_name || "-"}

@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS users (
     full_name       VARCHAR(255),
     role            VARCHAR(20) NOT NULL DEFAULT 'viewer',  -- admin / editor / viewer
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    is_approved     BOOLEAN NOT NULL DEFAULT TRUE,   -- FALSE: заявка на доступ ждёт админа
     invite_token_hash VARCHAR(64),
     invite_token    VARCHAR(64),
     invite_expires_at TIMESTAMP,
@@ -92,7 +93,9 @@ CREATE TABLE IF NOT EXISTS pilgrims (
     resident_status VARCHAR(20) NOT NULL DEFAULT 'резидент', -- c_resident_0
     tour_code       VARCHAR(64),                   -- q_number, "Tour code number"
     tour_code_old   VARCHAR(64),                   -- q_short_number, "Tour code old number"
-    created_at      TIMESTAMP NOT NULL DEFAULT now()
+    tour_code_created_at TIMESTAMP,                -- когда получен тур-код
+    tour_code_created_by VARCHAR(255),             -- кем (имя пользователя)
+    created_at     TIMESTAMP NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS ix_pilgrims_tour       ON pilgrims (tour_id);
@@ -143,6 +146,7 @@ CREATE TABLE IF NOT EXISTS dispatch_jobs (
 
     celery_task_id      VARCHAR(128),
     error_message       TEXT,
+    created_by_name     VARCHAR(255),
 
     created_at          TIMESTAMP NOT NULL DEFAULT now(),
     updated_at          TIMESTAMP NOT NULL DEFAULT now()

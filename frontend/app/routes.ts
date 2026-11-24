@@ -9,10 +9,12 @@ import { Settings } from "./pages/Settings";
 import { Users } from "./pages/Users";
 import { Login } from "./pages/Login";
 import { AcceptInvite } from "./pages/AcceptInvite";
+import { RequestAccess } from "./pages/RequestAccess";
 
 export const router = createBrowserRouter([
   { path: "/login", Component: Login },
   { path: "/invite/:token", Component: AcceptInvite },
+  { path: "/request-access", Component: RequestAccess },
   {
     Component: RequireAuth,
     children: [

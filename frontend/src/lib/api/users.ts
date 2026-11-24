@@ -29,6 +29,11 @@ export const updateUser = async (
   return response.data;
 };
 
+export const approveUser = async (id: string, role: UserRole): Promise<AppUser> => {
+  const response = await api.post<AppUser>(`/api/v1/users/${id}/approve`, { role });
+  return response.data;
+};
+
 export const regenerateInvite = async (id: string): Promise<InviteResult> => {
   const response = await api.post<InviteResult>(`/api/v1/users/${id}/invite`);
   return response.data;

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.v1.tour_packages import utc_iso
 from app.core.database import get_db
 from app.services.document_rules import normalize_document
 from db.models import Pilgrim
@@ -28,6 +29,8 @@ class PilgrimListItem(BaseModel):
     tour_route: str = ""
     date_start: str = ""
     date_end: str = ""
+    tour_code_created_at: str = ""
+    tour_code_created_by: str = ""
 
 
 class PilgrimListResponse(BaseModel):
@@ -95,6 +98,8 @@ def list_pilgrims(
                 tour_route=(tour.route if tour else "") or "",
                 date_start=(tour.date_start if tour else "") or "",
                 date_end=(tour.date_end if tour else "") or "",
+                tour_code_created_at=utc_iso(row.tour_code_created_at),
+                tour_code_created_by=row.tour_code_created_by or "",
             )
         )
 

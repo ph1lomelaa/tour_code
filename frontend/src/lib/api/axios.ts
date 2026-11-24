@@ -29,7 +29,7 @@ api.interceptors.request.use(
 );
 
 // Response interceptor: 401 — на страницу входа, 403 — нет прав.
-const PUBLIC_PATHS = ['/login', '/invite/'];
+const PUBLIC_PATHS = ['/login', '/invite/', '/request-access'];
 const isPublicPage = () => PUBLIC_PATHS.some((p) => window.location.pathname.startsWith(p));
 
 api.interceptors.response.use(
@@ -41,7 +41,7 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       const next = encodeURIComponent(window.location.pathname + window.location.search);
       window.location.href = `/login?next=${next}`;
-    } else if (status === 403) {
+    } else if (status === 403 && !url.includes('/api/v1/auth/')) {
       const detail = error.response?.data?.detail;
       toast.error(typeof detail === 'string' ? detail : 'Нет прав на это действие');
     }

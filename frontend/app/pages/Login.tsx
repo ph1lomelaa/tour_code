@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import { Loader2 } from "lucide-react";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -38,11 +38,11 @@ export function Login() {
   };
 
   return (
-    <AuthShell title="Вход" subtitle="Войдите с почтой и паролем, которые вы задали по ссылке-приглашению.">
+    <AuthShell title="Вход" subtitle="Войдите по почте и паролю.">
       <form onSubmit={submit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-sm text-brand-text">Почта</Label>
-          <Input id="email" type="email" autoComplete="email" required value={email}
+          <Label htmlFor="email" className="text-sm text-brand-text">Почта или логин</Label>
+          <Input id="email" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} required value={email}
             onChange={(e) => setEmail(e.target.value)} className={AUTH_INPUT} />
         </div>
         <div className="space-y-2">
@@ -54,8 +54,12 @@ export function Login() {
         <Button type="submit" disabled={busy} className={AUTH_BUTTON}>
           {busy && <Loader2 className="h-4 w-4 animate-spin" />} Войти
         </Button>
+        <p className="text-center text-sm text-brand-muted">
+          Нет доступа?{" "}
+          <Link to="/request-access" className="text-brand-accent hover:underline">Запросить доступ</Link>
+        </p>
         <p className="text-center text-xs text-brand-muted">
-          Нет доступа или забыли пароль? Попросите администратора прислать новую ссылку.
+          Забыли пароль? Попросите администратора прислать новую ссылку.
         </p>
       </form>
     </AuthShell>

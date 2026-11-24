@@ -22,6 +22,10 @@ class UserCreate(BaseModel):
     role: str = UserRole.VIEWER.value
 
 
+class UserApprove(BaseModel):
+    role: str = UserRole.VIEWER.value
+
+
 class UserUpdate(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
@@ -66,6 +70,8 @@ def _other_active_admins(db: Session, user: User) -> int:
 @router.get("")
 def list_users(db: Session = Depends(get_db), _admin: User = Depends(require_admin)):
     users = db.query(User).order_by(User.created_at.asc()).all()
+    # Заявки на доступ — первыми.
+    users.sort(key=lambda u: 0 if not u.is_approved else 1)
     return {"items": [admin_user_out(u) for u in users]}
 
 
@@ -96,6 +102,20 @@ def update_user(
         user.role = _check_role(body.role)
     if body.is_active is not None:
         user.is_active = body.is_active
+    db.commit()
+    return admin_user_out(user)
+
+
+@router.post("/{user_id}/approve")
+def approve_user(
+    user_id: str, body: UserApprove,
+    db: Session = Depends(get_db), _admin: User = Depends(require_admin),
+):
+    """Принять заявку на доступ с выбранной ролью."""
+    user = _get(db, user_id)
+    user.role = _check_role(body.role)
+    user.is_approved = True
+    user.is_active = True
     db.commit()
     return admin_user_out(user)
 

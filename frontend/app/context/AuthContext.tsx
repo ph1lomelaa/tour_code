@@ -28,13 +28,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!readToken()) return;
-    getMe()
-      .then(setUser)
-      .catch(() => {
-        localStorage.removeItem(TOKEN_KEY);
-        setUser(null);
-      })
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const check = () => {
+      getMe()
+        .then((me) => {
+          if (cancelled) return;
+          setUser(me);
+          setLoading(false);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          // Выходим только если сервер сказал «не пускать» (401). При обрыве сети
+          // или перезапуске сервера токен сохраняем и пробуем снова — вход не слетает.
+          if (err?.response?.status === 401) {
+            localStorage.removeItem(TOKEN_KEY);
+            setUser(null);
+            setLoading(false);
+          } else {
+            timer = setTimeout(check, 3000);
+          }
+        });
+    };
+    check();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
   const signIn = useCallback((session: AuthSession) => {

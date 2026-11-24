@@ -22,6 +22,7 @@ import {
   TourPackageSummary,
 } from "../../src/lib/api/tourPackages";
 import { useAuth } from "../context/AuthContext";
+import { CreatedBy } from "../components/CreatedBy";
 import { getDispatchJob } from "../../src/lib/api/dispatch";
 
 const KAMKOR_PORTAL_URL = "https://report.fondkamkor.kz";
@@ -586,7 +587,7 @@ export function TourPackages() {
                           {isExportingExcel ? "Готовим файл..." : "Скачать Excel"}
                         </Button>
                       </div>
-                      <div className="border border-brand-line rounded-lg overflow-hidden">
+                      <div className="border border-brand-line rounded-lg overflow-x-auto">
                         <Table>
                           <TableHeader>
                             <TableRow className="bg-green-50 hover:bg-green-50">
@@ -597,6 +598,7 @@ export function TourPackages() {
                               <TableHead>Пакет</TableHead>
                               <TableHead>Тур код</TableHead>
                               <TableHead>Старый формат</TableHead>
+                              <TableHead>Создан</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -609,6 +611,9 @@ export function TourPackages() {
                                 <TableCell>{row.package_name || "-"}</TableCell>
                                 <TableCell>{row.tour_code || "-"}</TableCell>
                                 <TableCell>{row.tour_code_old || "-"}</TableCell>
+                                <TableCell>
+                                  <CreatedBy at={row.tour_code_created_at} by={row.tour_code_created_by} />
+                                </TableCell>
                               </TableRow>
                             ))}
                           </TableBody>

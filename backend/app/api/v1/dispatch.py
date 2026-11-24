@@ -11,13 +11,14 @@ from sqlalchemy import desc, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.database import get_db
 from app.services.document_rules import normalize_document
 from app.services.route_utils import route_endpoints
 from db.models import (
     DispatchJob, DispatchJobStatus,
-    Tour, TourStatus, Pilgrim, TourOffer,
+    Tour, TourStatus, Pilgrim, TourOffer, User,
 )
 from app.queue.tasks.dispatch import process_dispatch_job
 
@@ -119,7 +120,12 @@ class DispatchJobDebugResponse(BaseModel):
     sent_at: Optional[datetime] = None
 
 
-def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
+def actor_name(user: User) -> str:
+    """Как подписывать действия пользователя в истории."""
+    return (user.full_name or "").strip() or user.email
+
+
+def _save_normalized(db: Session, request: "DispatchEnqueueRequest", user: User | None = None) -> Tour:
     """Создаёт Tour, Pilgrim и TourOffer записи из снапшота."""
     t = request.tour
     s = request.selection
@@ -140,6 +146,7 @@ def _save_normalized(db: Session, request: "DispatchEnqueueRequest") -> Tour:
         remark=s.remark or None,
         manifest_filename=request.manifest_filename or None,
         status=TourStatus.QUEUED,
+        created_by=str(user.id) if user is not None else None,
     )
     db.add(tour)
     db.flush()
@@ -284,20 +291,25 @@ def _enqueue_unavailable_message(is_retry: bool = False) -> str:
 
 
 @router.post("/jobs/enqueue", response_model=DispatchJobResponse)
-def enqueue_dispatch_job(request: DispatchEnqueueRequest, db: Session = Depends(get_db)):
+def enqueue_dispatch_job(
+    request: DispatchEnqueueRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     try:
         max_attempts = request.max_attempts or settings.DISPATCH_MAX_ATTEMPTS
         if max_attempts < 1:
             raise HTTPException(status_code=400, detail="max_attempts must be >= 1")
 
         # Сохраняем в нормализованные таблицы (tours, pilgrims, tour_offers)
-        tour = _save_normalized(db, request)
+        tour = _save_normalized(db, request, user)
 
         job = DispatchJob(
             tour_id=tour.id,
             status=DispatchJobStatus.QUEUED,
             payload=request.model_dump(),
             max_attempts=max_attempts,
+            created_by_name=actor_name(user),
         )
         db.add(job)
         db.commit()
@@ -372,7 +384,11 @@ def get_dispatch_job_debug(job_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/jobs/{job_id}/retry", response_model=DispatchJobResponse)
-def retry_dispatch_job(job_id: str, db: Session = Depends(get_db)):
+def retry_dispatch_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     job = db.get(DispatchJob, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Задача не найдена")
@@ -382,6 +398,8 @@ def retry_dispatch_job(job_id: str, db: Session = Depends(get_db)):
 
     job.status = DispatchJobStatus.QUEUED
     job.error_message = None
+    # Тур-код получит тот, кто нажал «Повторить».
+    job.created_by_name = actor_name(user)
     db.commit()
     db.refresh(job)
 

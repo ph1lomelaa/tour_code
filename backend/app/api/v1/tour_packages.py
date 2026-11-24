@@ -11,14 +11,21 @@ from pydantic import BaseModel, Field
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
+from app.api.v1.dispatch import actor_name
 from app.core.database import get_db
 from app.core.config import settings
 from app.queue.tasks.dispatch import process_dispatch_job
 from app.services.document_rules import normalize_document
-from db.models import DispatchJob, DispatchJobStatus, Pilgrim, Tour
+from db.models import DispatchJob, DispatchJobStatus, Pilgrim, Tour, User
 
 
 router = APIRouter(prefix="/tour-packages", tags=["tour-packages"])
+
+
+def utc_iso(value: Optional[datetime]) -> str:
+    """В БД время хранится в UTC без зоны — помечаем 'Z', чтобы браузер показал местное."""
+    return f"{value.isoformat(timespec='seconds')}Z" if value else ""
 
 
 class TourPackageSummary(BaseModel):
@@ -47,6 +54,9 @@ class MatchedPilgrimRow(BaseModel):
     # Второй код партнёра: q_short_number ("Tour code old number").
     tour_code_old: str = ""
     resident_status: str = "резидент"
+    # Когда (ISO, UTC) и кем получен тур-код. Пусто у старых записей.
+    tour_code_created_at: str = ""
+    tour_code_created_by: str = ""
 
 
 class ComparePilgrimRow(BaseModel):
@@ -222,6 +232,8 @@ def get_tour_package(tour_id: str, db: Session = Depends(get_db)):
             tour_code=row.tour_code or "",
             tour_code_old=row.tour_code_old or "",
             resident_status=row.resident_status or "резидент",
+            tour_code_created_at=utc_iso(row.tour_code_created_at),
+            tour_code_created_by=row.tour_code_created_by or "",
         )
         for row in matched_rows_db
     ]
@@ -353,6 +365,7 @@ def enqueue_tour_dispatch_single(
     tour_id: str,
     payload: EnqueueSingleDispatchRequest,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     tour = db.get(Tour, tour_id)
     if tour is None:
@@ -453,6 +466,7 @@ def enqueue_tour_dispatch_single(
         status=DispatchJobStatus.QUEUED,
         payload=snapshot_payload,
         max_attempts=settings.DISPATCH_MAX_ATTEMPTS,
+        created_by_name=actor_name(user),
     )
     db.add(job)
     db.commit()
@@ -524,6 +538,9 @@ def add_pilgrim_to_tour(
             package_name=existing.package_name or "",
             tour_code=existing.tour_code or "",
             tour_code_old=existing.tour_code_old or "",
+            resident_status=existing.resident_status or "резидент",
+            tour_code_created_at=utc_iso(existing.tour_code_created_at),
+            tour_code_created_by=existing.tour_code_created_by or "",
         )
 
     row = Pilgrim(

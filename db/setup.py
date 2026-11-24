@@ -53,6 +53,11 @@ def _apply_lightweight_migrations() -> None:
         if "user_email" not in audit_columns:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE admin_audit_log ADD COLUMN user_email VARCHAR(255)"))
+    if "dispatch_jobs" in tables:
+        job_columns = {c["name"] for c in inspector.get_columns("dispatch_jobs")}
+        if "created_by_name" not in job_columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE dispatch_jobs ADD COLUMN created_by_name VARCHAR(255)"))
     if "pilgrims" not in tables:
         return
 
@@ -66,6 +71,10 @@ def _apply_lightweight_migrations() -> None:
             conn.execute(text("ALTER TABLE pilgrims ADD COLUMN tour_code_old VARCHAR(64)"))
         if "resident_status" not in columns:
             conn.execute(text("ALTER TABLE pilgrims ADD COLUMN resident_status VARCHAR(20) NOT NULL DEFAULT 'резидент'"))
+        if "tour_code_created_at" not in columns:
+            conn.execute(text("ALTER TABLE pilgrims ADD COLUMN tour_code_created_at TIMESTAMP"))
+        if "tour_code_created_by" not in columns:
+            conn.execute(text("ALTER TABLE pilgrims ADD COLUMN tour_code_created_by VARCHAR(255)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pilgrims_tour_code ON pilgrims (tour_code)"))
         # Старый глобальный уникальный индекс блокировал повторную отправку
         # того же паломника в разных турах. Дедуп теперь в рамках одного тура.
@@ -92,6 +101,8 @@ def _migrate_users(inspector) -> None:
             conn.execute(text("ALTER TABLE users ADD COLUMN invite_token VARCHAR(64)"))
         if "invite_expires_at" not in columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN invite_expires_at TIMESTAMP"))
+        if "is_approved" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN is_approved BOOLEAN NOT NULL DEFAULT TRUE"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_users_invite_token_hash ON users (invite_token_hash)"))
         if _is_sqlite:
             return

@@ -7,6 +7,20 @@ from app.services.route_utils import route_endpoints
 
 
 class RoutePayloadTests(unittest.TestCase):
+    def test_client_name_is_surname_and_name(self):
+        cases = [
+            ({"surname": "Ivanov", "name": "Ali"}, "IVANOV ALI"),
+            ({"surname": "LI", "name": "Wei"}, "LI WEI"),
+            ({"surname": "Ivanov", "name": ""}, "IVANOV"),
+        ]
+        for person, expected in cases:
+            with self.subTest(person=person):
+                prepared = build_partner_payload(
+                    {"tour": {"route": "ALA-JED", "days": 8}, "selection": {},
+                     "results": {"matched": [{**person, "document": "N00000001"}]}}
+                )
+                self.assertEqual(prepared["json_items"][0]["payload"]["c_nmeng_0"], expected)
+
     def test_cit_jed_sheet_route_and_departure_city(self):
         service = GoogleSheetsService()
         for route in ("CIT-JED", "cit-jed"):
